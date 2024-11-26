@@ -20,11 +20,13 @@ table_lines <- lines[str_detect(lines, "\\d{2}:\\d{2}\\s+\\d{2} - \\d{2}")]
 extracted_data <- lapply(table_lines, function(line) {
   matches <- str_match_all(line, "(\\d{2}:\\d{2})\\s+(\\d{2} - \\d{2})\\s+(.*?)(?=(\\d{2}:\\d{2}|$))")
   data.frame(
-    Temps = matches[[1]][, 2],
-    Score = matches[[1]][, 3],
-    Action = matches[[1]][, 4]
+    temps = matches[[1]][, 2],
+    score = matches[[1]][, 3],
+    action = matches[[1]][, 4]
   )
 })
+
+extracted_data$score <- as.numeric(extracted_data$score)
 
 # Combiner toutes les lignes extraites en un seul data frame
 df_match <- do.call(rbind, extracted_data)
@@ -32,14 +34,13 @@ df_match <- do.call(rbind, extracted_data)
 # Convertir le temps en secondes pour faciliter le tri
 df_match <- df_match %>%
   mutate(
-    Temps_Sec = as.numeric(str_extract(Temps, "^\\d{1,2}")) * 60 + as.numeric(str_extract(Temps, "\\d{2}$"))
+    Temps_Sec = as.numeric(str_extract(temps, "^\\d{1,2}")) * 60 + as.numeric(str_extract(temps, "\\d{2}$"))
   )
 
 # Trier les données par Temps_Sec
 df_match <- df_match %>%
   arrange(Temps_Sec)
-df_match <- df_match %>%
-  select(-Temps_Sec)
+
 
 # Afficher le résultat final
 head(df_match)
@@ -78,9 +79,60 @@ coach_visiteur <- coach[2]
 
 
 df_info_equipe <- data.frame(
-  code_renc = code_renc,
-  equipe_recevant = recevant,
+  code_rencontre = code_renc,
+  club_recevant = recevant,
   coach_recevant = coach_recevant,
-  equipe_visiteur = visiteur,
+  club_visiteur = visiteur,
   coach_visiteur = coach_visiteur
 )
+
+df_info_repeat <- df_info_equipe[rep(1,nrow(df_match)),]
+df_info_match <- cbind(df_info_repeat, df_match)
+rownames(df_info_match) <- NULL
+
+df_info_match$score_final <- df_info_match$score[nrow(df_info_match)]
+df_info_match <- df_info_match %>% separate(col = score,
+                           into = c("score_recevant", "score_visiteur"),
+                           sep = '-')
+df_info_match$score_recevant <- as.numeric(df_info_match$score_recevant)
+df_info_match$score_visiteur <- as.numeric(df_info_match$score_visiteur)
+
+##### Dataframe temps-morts #####
+
+# Extraire les index où chaque équipe à pris un temps mort
+index_tm_visiteur <- which(is.na(str_extract(df_info_match$action, "^Temps Mort.+Visiteur$")) == FALSE)
+index_tm_recevant <- which(is.na(str_extract(df_info_match$action, "^Temps Mort.+Recevant$")) == FALSE)
+
+# Créer une colonne "qui prend le temps mort"
+
+df_info_match$temps_mort_equipe <- ""
+df_info_match$temps_mort_equipe[index_tm_recevant] <- "r"
+df_info_match$temps_mort_equipe[index_tm_visiteur] <- "v"
+
+# But 1 min après temps-mort
+
+df_info_match$but_1min_apres_temps_mort <- ""
+
+for (i in which(df_info_match$temps_mort_equipe != "")){
+  ind_1min_apres_tm <- which(df_info_match$Temps_Sec > df_info_match$Temps_Sec[i] & 
+                               df_info_match$Temps_Sec <= df_info_match$Temps_Sec[i] + 60)
+  
+  for (j in ind_1min_apres_tm){
+    if (df_info_match$temps_mort_equipe[i] == "r" & 
+        df_info_match$score_recevant[j] > df_info_match$score_recevant[i]){
+      df_info_match$but_1min_apres_temps_mort[i] <- "oui"
+    }
+    else if (df_info_match$temps_mort_equipe[i] == "v" & 
+               df_info_match$score_visiteur[j] > df_info_match$score_visiteur[i]){
+      df_info_match$but_1min_apres_temps_mort[i] <- "oui"
+    }
+    
+    else {
+      df_info_match$but_1min_apres_temps_mort[i] <- "non"
+    }
+  }
+  
+}
+
+df_final <- df_info_match[grepl("^(Temps Mort|But)", df_info_match$action), ] %>% 
+  select(-"action", -"Temps_Sec")
