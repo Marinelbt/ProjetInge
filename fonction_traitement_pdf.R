@@ -88,7 +88,7 @@ traitement_pdf <- function(pdf_file){   # format "nom_doc.pdf"
 }
 
 
-ajout_variables <- function(data_info_match){   # format data.frame
+ajout_variables <- function(df_info_match){   # format data.frame
   # Extraire les index où chaque équipe à pris un temps mort
   index_tm_visiteur <- which(is.na(str_extract(df_info_match$action, "^Temps Mort.+Visiteur$")) == FALSE)
   index_tm_recevant <- which(is.na(str_extract(df_info_match$action, "^Temps Mort.+Recevant$")) == FALSE)
@@ -129,5 +129,3 @@ ajout_variables <- function(data_info_match){   # format data.frame
   return (df_final)
 }  
 
-
-ajout_variables(traitement_pdf("UAFJKJI.pdf"))
