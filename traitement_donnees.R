@@ -4,7 +4,7 @@ library(pdftools)  # Pour extraire le texte des PDF
 
 
 # Charger le fichier PDF
-pdf_file <- "UAFJKJI.pdf"
+pdf_file <- "pdf/UAFJKMF.pdf"
 text <- pdf_text(pdf_file)
 
 # Diviser le contenu en lignes
