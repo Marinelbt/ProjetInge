@@ -36,7 +36,7 @@ traiter_dossier_pdf <- function(dossier_pdf, df_existant = NULL){   # format che
   return(df_complet_final)
 }
 
-df <- traiter_dossier_pdf("pdf")
+df <- traiter_dossier_pdf("fichiers_pdf")
 
 # Enregistrer le dataframe final dans un fichier csv
 write.csv(resultat, "df_pdfs.csv", row.names = FALSE)  

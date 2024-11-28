@@ -102,6 +102,10 @@ ajout_variables <- function(df_info_match){   # format data.frame
   df_info_match$but_1min_apres_temps_mort <- ""
   
   for (i in which(df_info_match$temps_mort_equipe != "")){
+    if (df_info_match$Temps_Sec[i+1] > df_info_match$Temps_Sec[i] + 60 |
+        is.na(df_info_match$Temps_Sec[i+1])==T){
+      df_info_match$but_1min_apres_temps_mort[i] <- "non"
+    }
     ind_1min_apres_tm <- which(df_info_match$Temps_Sec > df_info_match$Temps_Sec[i] & 
                                  df_info_match$Temps_Sec <= df_info_match$Temps_Sec[i] + 60)
     
@@ -125,6 +129,19 @@ ajout_variables <- function(df_info_match){   # format data.frame
   # Garder les variables qui nous intéressent
   df_final <- df_info_match[grepl("^(Temps Mort|But)", df_info_match$action), ] %>% 
     select(-"action", -"Temps_Sec")
+  
+  # Ajouter une colonne si l'équipe est en train de perdre, gagner, égalité
+  df_final$statut_recevant <- rep(0, nrow(df_final))
+  for (i in 1:nrow(df_final)){
+    if (df_final$score_recevant[i] > df_final$score_visiteur[i]){
+      df_final$statut_recevant[i] <- 1
+    }
+    else if (df_final$score_recevant[i] < df_final$score_visiteur[i]){
+      df_final$statut_recevant[i] <- -1
+    }
+  }
+  
+  df_final$ecart_recevant <- df_final$score_recevant - df_final$score_visiteur
   
   return (df_final)
 }  
