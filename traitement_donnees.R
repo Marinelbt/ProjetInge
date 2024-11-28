@@ -136,3 +136,19 @@ for (i in which(df_info_match$temps_mort_equipe != "")){
 
 df_final <- df_info_match[grepl("^(Temps Mort|But)", df_info_match$action), ] %>% 
   select(-"action", -"Temps_Sec")
+
+# Ajouter une colonne si l'équipe est en train de perdre, gagner, égalité
+
+df_final$statut_recevant <- rep(0, nrow(df_final))
+for (i in 1:nrow(df_final)){
+  if (df_final$score_recevant[i] > df_final$score_visiteur[i]){
+    df_final$statut_recevant[i] <- 1
+  }
+  else if (df_final$score_recevant[i] < df_final$score_visiteur[i]){
+    df_final$statut_recevant[i] <- -1
+  }
+}
+
+df_final$ecart_recevant <- df_final$score_recevant - df_final$score_visiteur
+
+
