@@ -5,7 +5,7 @@ library(stringr)   # Pour traiter les chaînes de caractères
 
 ##### Fonction traitement document pdf #####
 
-traitement_pdf <- function(pdf_file){   # format "nom_doc.pdf"
+traitement_pdf <- function(pdf_file) {   
   text <- pdf_text(pdf_file)
   
   # Diviser le contenu en lignes
@@ -17,17 +17,21 @@ traitement_pdf <- function(pdf_file){   # format "nom_doc.pdf"
   # Appliquer l'extraction de la ligne à toutes les lignes pertinentes
   extracted_data <- lapply(table_lines, function(line) {
     matches <- str_match_all(line, "(\\d{2}:\\d{2})\\s+(\\d{2} - \\d{2})\\s+(.*?)(?=(\\d{2}:\\d{2}|$))")
+    
+    # Convertir en data.frame
     data.frame(
       temps = matches[[1]][, 2],
       score = matches[[1]][, 3],
-      action = matches[[1]][, 4]
-    )
+      action = matches[[1]][, 4],
+      stringsAsFactors = FALSE
+    )  # Assurez-vous que le résultat est un dataframe
   })
-  
-  extracted_data$score <- as.numeric(extracted_data$score)
   
   # Combiner toutes les lignes extraites en un seul data frame
   df_match <- do.call(rbind, extracted_data)
+  
+  # S'assurer que df_match est bien un data frame
+  df_match <- as.data.frame(df_match)
   
   # Convertir le temps en secondes pour faciliter le tri
   df_match <- df_match %>%
@@ -38,7 +42,7 @@ traitement_pdf <- function(pdf_file){   # format "nom_doc.pdf"
   # Trier les données par Temps_Sec
   df_match <- df_match %>%
     arrange(Temps_Sec)
-
+  
   # Extraire code rencontre
   code_renc <- lines[str_detect(lines, "Code Renc")]
   code_renc <- str_extract(code_renc, "Code Renc\\s+(.+)")
@@ -62,17 +66,18 @@ traitement_pdf <- function(pdf_file){   # format "nom_doc.pdf"
   coach_recevant <- coach[1]
   coach_visiteur <- coach[2]
   
-  # tableau avec les infos des équipes
+  # Tableau avec les infos des équipes
   df_info_equipe <- data.frame(
     code_rencontre = code_renc,
     club_recevant = recevant,
     coach_recevant = coach_recevant,
     club_visiteur = visiteur,
-    coach_visiteur = coach_visiteur
+    coach_visiteur = coach_visiteur,
+    stringsAsFactors = FALSE
   )
   
-  # Assembler les deux dataframe
-  df_info_repeat <- df_info_equipe[rep(1,nrow(df_match)),]
+  # Assembler les deux dataframes
+  df_info_repeat <- df_info_equipe[rep(1, nrow(df_match)), ]
   df_info_match <- cbind(df_info_repeat, df_match)
   rownames(df_info_match) <- NULL
   
@@ -84,14 +89,24 @@ traitement_pdf <- function(pdf_file){   # format "nom_doc.pdf"
   df_info_match$score_recevant <- as.numeric(df_info_match$score_recevant)
   df_info_match$score_visiteur <- as.numeric(df_info_match$score_visiteur)
   
-  return (df_info_match)
+  return(df_info_match)
 }
 
 
-ajout_variables <- function(df_info_match){   # format data.frame
-  # Extraire les index où chaque équipe à pris un temps mort
-  index_tm_visiteur <- which(is.na(str_extract(df_info_match$action, "^Temps Mort.+Visiteur$")) == FALSE)
-  index_tm_recevant <- which(is.na(str_extract(df_info_match$action, "^Temps Mort.+Recevant$")) == FALSE)
+ajout_variables <- function(df_info_match) {   
+  # Vérifiez si le type de df_info_match est un dataframe
+  if (!is.data.frame(df_info_match)) {
+    stop("L'entrée n'est pas un data frame!")
+  }
+  
+  # Convertir les colonnes nécessaires en numeric si ce n'est pas déjà fait
+  df_info_match$Temps_Sec <- as.numeric(df_info_match$Temps_Sec)
+  df_info_match$score_recevant <- as.numeric(df_info_match$score_recevant)
+  df_info_match$score_visiteur <- as.numeric(df_info_match$score_visiteur)
+  
+  # Extraire les index où chaque équipe a pris un temps mort
+  index_tm_visiteur <- which(!is.na(str_extract(df_info_match$action, "^Temps Mort.+Visiteur$")))
+  index_tm_recevant <- which(!is.na(str_extract(df_info_match$action, "^Temps Mort.+Recevant$")))
   
   # Créer une colonne "qui prend le temps mort"
   df_info_match$temps_mort_equipe <- ""
@@ -101,29 +116,26 @@ ajout_variables <- function(df_info_match){   # format data.frame
   # But 1 min après temps-mort
   df_info_match$but_1min_apres_temps_mort <- ""
   
-  for (i in which(df_info_match$temps_mort_equipe != "")){
-    if (df_info_match$Temps_Sec[i+1] > df_info_match$Temps_Sec[i] + 60 |
-        is.na(df_info_match$Temps_Sec[i+1])==T){
+  for (i in which(df_info_match$temps_mort_equipe != "")) {
+    if (df_info_match$Temps_Sec[i + 1] > df_info_match$Temps_Sec[i] + 60 |
+        is.na(df_info_match$Temps_Sec[i + 1])) {
       df_info_match$but_1min_apres_temps_mort[i] <- "non"
     }
+    
     ind_1min_apres_tm <- which(df_info_match$Temps_Sec > df_info_match$Temps_Sec[i] & 
                                  df_info_match$Temps_Sec <= df_info_match$Temps_Sec[i] + 60)
     
-    for (j in ind_1min_apres_tm){
+    for (j in ind_1min_apres_tm) {
       if (df_info_match$temps_mort_equipe[i] == "r" & 
-          df_info_match$score_recevant[j] > df_info_match$score_recevant[i]){
+          df_info_match$score_recevant[j] > df_info_match$score_recevant[i]) {
         df_info_match$but_1min_apres_temps_mort[i] <- "oui"
-      }
-      else if (df_info_match$temps_mort_equipe[i] == "v" & 
-               df_info_match$score_visiteur[j] > df_info_match$score_visiteur[i]){
+      } else if (df_info_match$temps_mort_equipe[i] == "v" & 
+                 df_info_match$score_visiteur[j] > df_info_match$score_visiteur[i]) {
         df_info_match$but_1min_apres_temps_mort[i] <- "oui"
-      }
-      
-      else {
+      } else {
         df_info_match$but_1min_apres_temps_mort[i] <- "non"
       }
     }
-    
   }
   
   # Garder les variables qui nous intéressent
@@ -132,17 +144,16 @@ ajout_variables <- function(df_info_match){   # format data.frame
   
   # Ajouter une colonne si l'équipe est en train de perdre, gagner, égalité
   df_final$statut_recevant <- rep(0, nrow(df_final))
-  for (i in 1:nrow(df_final)){
-    if (df_final$score_recevant[i] > df_final$score_visiteur[i]){
+  for (i in 1:nrow(df_final)) {
+    if (df_final$score_recevant[i] > df_final$score_visiteur[i]) {
       df_final$statut_recevant[i] <- 1
-    }
-    else if (df_final$score_recevant[i] < df_final$score_visiteur[i]){
+    } else if (df_final$score_recevant[i] < df_final$score_visiteur[i]) {
       df_final$statut_recevant[i] <- -1
     }
   }
   
   df_final$ecart_recevant <- df_final$score_recevant - df_final$score_visiteur
   
-  return (df_final)
-}  
+  return(df_final)
+}
 
