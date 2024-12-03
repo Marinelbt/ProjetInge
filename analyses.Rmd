@@ -15,48 +15,84 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+library(lubridate)
 ```
 
 
 #Préparation du jeu de données 
 
 ```{r}
-data <- read.table("Donnees_hand.csv", header = TRUE, sep = ",")
+data <- read.table("df_pdfs.csv", header = TRUE, sep = ",")
 
 data <- data %>%
-  separate(temps_mort_score, into = c("temps_mort_score_r", "temps_mort_score_v"), sep = "-")
-
-data <- data %>%
-  separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-")
-
-data <- data %>%
+  separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
   mutate(
     score_final_r = as.numeric(score_final_r),
     score_final_v = as.numeric(score_final_v),
-    temps_mort_score_r = as.numeric(temps_mort_score_r),
-    temps_mort_score_v = as.numeric(temps_mort_score_v)
-  )
-
-data <- data %>%
+    temps_secondes = as.numeric(ms(temps), units = "secs"),
+    action = ifelse(temps_mort_equipe != "", "TM", "B"),
+    equipe = ifelse(temps_mort_equipe != "", temps_mort_equipe, NA)
+  ) %>%
+  group_by(fichier) %>%
   mutate(
-    score_diff_initial = ifelse(
-      temps_mort_equipe == "r",
-      temps_mort_score_r - temps_mort_score_v,
-      temps_mort_score_v - temps_mort_score_r),
-    but_apres_temps_mort = ifelse(but_apres_temps_mort == "oui", 1, 0),
-    resultat = ifelse(
-      temps_mort_equipe == "r",
-      ifelse(score_final_r > score_final_v, "victoire", "défaite ou nul"),
-      ifelse(score_final_v > score_final_r, "victoire", "défaite ou nul"))
-  )
+    equipe = case_when(
+      action == "B" & score_recevant > lag(score_recevant, default = 0) ~ "r",
+      action == "B" & score_visiteur > lag(score_visiteur, default = 0) ~ "v",
+      TRUE ~ equipe  # Conserver les valeurs existantes ou NA
+    ),
+    periode = case_when(
+      temps_secondes >= 0 & temps_secondes < 600 ~ 1,  # 0 - 10 minutes
+      temps_secondes >= 600 & temps_secondes < 1200 ~ 2,  # 10 - 20 minutes
+      temps_secondes >= 1200 & temps_secondes < 1800 ~ 3,  # 20 - 30 minutes
+      temps_secondes >= 1800 & temps_secondes < 2400 ~ 4,  # 30 - 40 minutes
+      temps_secondes >= 2400 & temps_secondes < 3000 ~ 5,  # 40 - 50 minutes
+      temps_secondes >= 3000 & temps_secondes < 3540 ~ 6,  # 50 - 59 minutes
+      temps_secondes >= 3540 ~ 7,  # 59 - 60 minutes
+      TRUE ~ NA_real_  # Valeur par défaut pour les autres cas (au cas où)
+    )
+  ) %>%
+  ungroup() %>%
+  mutate(
+    ecart = ifelse(equipe == "r", ecart_recevant, -ecart_recevant),
+    statut = ifelse(equipe == "r", statut_recevant, -statut_recevant),
+    equipe = as.numeric(ifelse(equipe == "r", 1, 0))
+  ) %>%
+  select(-c(statut_recevant, ecart_recevant, temps_mort_equipe))
+
+data_tm_deniere_min <- data[data$action == "TM" & data$temps_secondes >= 3540 , ]
 ```
 
 
 #Analyse descriptive 
 
 ```{r}
-ggplot(data, aes(x = factor(but_apres_temps_mort))) +
-  geom_bar(fill = "steelblue") +
+ggplot(data[data$action == "TM",], aes(x = factor(periode))) +
+  geom_bar(color = "black", fill = "gray") +  # Calcul des pourcentages
+  labs(
+    title = "Pourcentage de temps mort pris par périodes",  # Titre du graphique
+    x = "Période",  # Libellé de l'axe des X
+    y = "Fréqunece"  # Libellé de l'axe des Y
+  ) +
+  geom_text(
+    aes(label = scales::percent(..count../sum(..count..))),  # Ajout du pourcentage sur chaque barre
+    stat = "count",  # Utiliser stat=count pour compter les occurrences
+    vjust = -0.5,  # Positionner les étiquettes au-dessus des barres
+    color = "black"  # Couleur du texte
+  ) +
+  theme_minimal()  # Appliquer un thème minimal
+
+```
+
+
+```{r}
+data_but <- data_tm_deniere_min[data_tm_deniere_min$but_1min_apres_temps_mort != "",] %>%
+  count(but_1min_apres_temps_mort) %>%
+  mutate(percentage = n / sum(n) * 100) 
+
+# Création du graphique avec pourcentages
+ggplot(data_but, aes(x = factor(but_1min_apres_temps_mort), y = n)) +
+  geom_bar(stat = "identity", color = "black", fill = "gray") +
+  geom_text(aes(label = paste0(round(percentage, 1), "%")), vjust = -0.5, size = 4) +
   scale_x_discrete(labels = c("0" = "Non", "1" = "Oui")) +
   labs(
     title = "Buts marqués après un temps mort pris à la dernière minute",
@@ -64,40 +100,135 @@ ggplot(data, aes(x = factor(but_apres_temps_mort))) +
     y = "Fréquence"
   ) +
   theme_minimal()
+```
 
 
-ggplot(data, aes(x = score_diff_initial)) +
-  geom_histogram(binwidth = 1, fill = "blue", alpha = 0.7) +
-  labs(title = "Écart de score avant le temps mort", x = "Écart initial", y = "Fréquence")
+
+```{r}
+ggplot(data[data$action == "TM",], aes(x = ecart)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "gray", alpha = 0.7) +
+  labs(title = "Écart de score avant le temps mort", x = "Différentiel de score", y = "Fréquence") +
+  theme_minimal()
+
+ggplot(data_tm_deniere_min, aes(x = ecart)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "gray", alpha = 0.7) +
+  labs(title = "Écart de score avant le temps mort pris à la dernière minute", x = "Différentiel de score", y = "Fréquence") +
+  theme_minimal()
+
+ggplot(data[data$action == "TM",], aes(x = statut)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "gray", alpha = 0.7) +
+  labs(title = "Statut du match avant le temps mort", x = "Statut", y = "Fréquence") +
+  geom_text(
+    aes(label = scales::percent(..count../sum(..count..))),  # Ajout du pourcentage sur chaque barre
+    stat = "count",  # Utiliser stat=count pour compter les occurrences
+    vjust = -0.5,  # Positionner les étiquettes au-dessus des barres
+    color = "black"  # Couleur du texte
+  ) +
+  theme_minimal()
+
+ggplot(data_tm_deniere_min, aes(x = statut)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "gray", alpha = 0.7) +
+  labs(title = "Statut du match avant le temps mort pris à la dernière minute", x = "Différentiel de score", y = "Fréquence") +
+  geom_text(
+    aes(label = scales::percent(..count../sum(..count..))),  # Ajout du pourcentage sur chaque barre
+    stat = "count",  # Utiliser stat=count pour compter les occurrences
+    vjust = -0.5,  # Positionner les étiquettes au-dessus des barres
+    color = "black"  # Couleur du texte
+  ) +
+  theme_minimal()
+
 ```
 #Analyse statistique 
 
-```{r}
-# Tableau croisé : temps mort vs but marqué
-table_but <- table(data$but_apres_temps_mort)
-table_but
 
-# Test du chi-carré pour vérifier l'association
-chisq.test(table_but)
+```{r}
+# Identifier les lignes avec un temps mort et un temps > 59 minutes
+temps_mort_rows <- which(data$action == "TM" & data$temps_secondes >= 3540)
+
+# Initialiser une liste pour stocker les indices des lignes à garder
+index_to_keep <- vector()
+
+# Initialiser une colonne 'before_after' avec FALSE par défaut
+data$apres_TM_dernier_minute <- 0
+
+# Boucle pour inclure les lignes après un temps mort et celles avant dans un intervalle de 60 secondes
+for (i in temps_mort_rows) {
+  # Ajouter la ligne correspondant au temps mort
+  index_to_keep <- c(index_to_keep, i)
+  
+  # Ajouter les lignes sur un intervalle d'une minute avant
+  index_before <- which(data$temps_secondes >= data$temps_secondes[i] - 60 & data$temps_secondes < data$temps_secondes[i])
+  # Marquer les lignes avant le temps mort comme FALSE
+  data$apres_TM_dernier_minute[index_before] <- 0
+  
+  # Ajouter les lignes sur un intervalle d'une minute après
+  index_after <- which(data$temps_secondes <= data$temps_secondes[i] + 60 & data$temps_secondes > data$temps_secondes[i])
+  # Marquer les lignes après le temps mort comme TRUE
+  data$apres_TM_dernier_minute[index_after] <- 1
+  
+  # Ajouter les indices précédents
+  index_to_keep <- c(index_to_keep, index_before, index_after)
+}
+
+# Supprimer les doublons
+index_to_keep <- unique(index_to_keep)
+
+# Filtrer les données selon les indices sélectionnés
+data_mod <- data[index_to_keep, ]
+
+data$apres_TM_dernier_minute <- as.numeric(data$apres_TM_dernier_minute)
+data_mod$apres_TM_dernier_minute <- as.numeric(data_mod$apres_TM_dernier_minute)
+data_mod$ecart <- as.numeric(data_mod$ecart)
+data_mod$statut <- as.numeric(data_mod$statut)
+
+mod1 <- glm(ecart ~ statut + apres_TM_dernier_minute + equipe, family = gaussian(), data = data_mod)
+summary(mod1)
+
 ```
+
+
 ```{r}
-# Regrouper les résultats en deux catégories : victoire et non-victoire
-table_resultat <- table(data$resultat)  # Contient "victoire", "défaite", "nul"
+# Identifier les lignes avec un temps mort et un temps > 59 minutes
+temps_mort_rows <- which(data$action == "TM" & data$temps_secondes >= 3540 & abs(data$ecart) < 2)
 
-# Créer un tableau avec 2 catégories : victoire et non-victoire
-victoire <- sum(table_resultat["victoire"])        # Nombre de victoires
-non_victoire <- sum(table_resultat[c("défaite", "nul")])  # Nombre de non-victoires
+# Initialiser une liste pour stocker les indices des lignes à garder
+index_to_keep <- vector()
 
-# Créer un tableau des totaux
-total <- sum(victoire, non_victoire)  # Total des observations
+# Initialiser une colonne 'before_after' avec FALSE par défaut
+data$apres_TM_dernier_minute <- 0
 
-# Test de proportion
-test_result <- prop.test(c(victoire, non_victoire), c(total, total))
+# Boucle pour inclure les lignes après un temps mort et celles avant dans un intervalle de 60 secondes
+for (i in temps_mort_rows) {
+  # Ajouter la ligne correspondant au temps mort
+  index_to_keep <- c(index_to_keep, i)
+  
+  # Ajouter les lignes sur un intervalle d'une minute avant
+  index_before <- which(data$temps_secondes >= data$temps_secondes[i] - 60 & data$temps_secondes < data$temps_secondes[i])
+  # Marquer les lignes avant le temps mort comme FALSE
+  data$apres_TM_dernier_minute[index_before] <- 0
+  
+  # Ajouter les lignes sur un intervalle d'une minute après
+  index_after <- which(data$temps_secondes <= data$temps_secondes[i] + 60 & data$temps_secondes > data$temps_secondes[i])
+  # Marquer les lignes après le temps mort comme TRUE
+  data$apres_TM_dernier_minute[index_after] <- 1
+  
+  # Ajouter les indices précédents
+  index_to_keep <- c(index_to_keep, index_before, index_after)
+}
 
-# Afficher le résultat
-print(test_result)
+# Supprimer les doublons
+index_to_keep <- unique(index_to_keep)
 
+# Filtrer les données selon les indices sélectionnés
+data_mod2 <- data[index_to_keep, ]
 
+data$apres_TM_dernier_minute <- as.numeric(data$apres_TM_dernier_minute)
+data_mod2$apres_TM_dernier_minute <- as.numeric(data_mod2$apres_TM_dernier_minute)
+data_mod2$ecart <- as.numeric(data_mod2$ecart)
+data_mod2$statut <- as.numeric(data_mod2$statut)
+
+mod2 <- glm(ecart ~ statut + apres_TM_dernier_minute + equipe, family = gaussian(), data = data_mod2)
+summary(mod2)
 ```
 
 
