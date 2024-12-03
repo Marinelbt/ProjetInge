@@ -30,7 +30,7 @@ driver <- rsDriver(browser = "chrome", port = as.integer(4444))
 remote_driver <- driver[["client"]]
 
 # Ouvrir la page web
-remote_driver$navigate("https://www.ffhandball.fr/competitions/saison-2023-2024-19/national/liqui-moly-starligue-2023-24-23266/poule-128388/classements/")
+remote_driver$navigate("https://www.ffhandball.fr/competitions/saison-2022-2023-18/national/liqui-moly-starligue-2022-23-20342/poule-108997/classements/")
 
 # Extraire le code source après chargement de la page
 page_source <- remote_driver$getPageSource()[[1]]
