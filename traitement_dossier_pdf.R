@@ -76,7 +76,7 @@ traiter_dossier_pdf <- function(dossier_pdf, df_existant = NULL) {
 }
 
 
-df <- traiter_dossier_pdf("pdf")
+df <- traiter_dossier_pdf("pdf_test")
 
 # Enregistrer le dataframe final dans un fichier csv
 write.csv(df, "df_pdfs.csv", row.names = FALSE)  
