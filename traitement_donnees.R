@@ -3,12 +3,14 @@ library(stringr)   # Pour traiter les chaînes de caractères
 library(pdftools)  # Pour extraire le texte des PDF
 
 
+
 # Charger le fichier PDF
-pdf_file <- "pdf/UAFJKMF.pdf"
+pdf_file <- "pdf/rencontre_D2H_2425_854.pdf"
 text <- pdf_text(pdf_file)
 
 # Diviser le contenu en lignes
 lines <- unlist(strsplit(text, "\n"))
+lines <- str_squish(lines)
 
 
 ##### Déroulé du match #####
@@ -50,14 +52,14 @@ head(df_match)
 ##### Extraire code rencontre #####
 
 code_renc <- lines[str_detect(lines, "Code Renc")]
-code_renc <- str_extract(code_renc, "Code Renc\\s+(.+)")
+code_renc <- str_extract(code_renc, "(?<=Renc ?)[A-Z]+")
 code_renc <- str_trim(str_extract(code_renc, "\\S+$"))[1]
 code_renc
 
 
 ##### Nom équipes #####
 
-equipe <- lines[str_detect(lines, "/")][1]
+equipe <- lines[str_detect(lines, " / ")][1]
 equipe <- str_split(equipe, "/")
 recevant <- str_trim(equipe[[1]][1])
 visiteur <- str_trim(str_extract(equipe[[1]][2], "^[^\\d]+"))
@@ -65,15 +67,25 @@ visiteur <- str_trim(str_extract(equipe[[1]][2], "^[^\\d]+"))
 
 ##### Noms coachs #####
 
-index_coach <- which(str_detect(lines, "Officiel Resp"))
+index_coach <- which(str_detect(lines, "Officiel Resp\\."))
+if (length(index_coach) == 0){
+  index_coach <- which(str_detect(lines, "Officiel Resp"))
+  
+  # Extraire le nom et prénom de la ligne suivante pour chaque occurrence de "Officiel Resp"
+  coach <- sapply(index_coach, function(index) {
+    # Extraire la ligne suivante
+    line_next <- lines[index + 1]
+    name_and_surname <- str_extract(line_next, "^[^\\d]+")  # Capture tout avant un chiffre
+    str_trim(name_and_surname)  # Supprimer les espaces superflus
+  })
+} else {
+  coach <- sapply(index_coach, function(index) {
+    # Extraire la ligne suivante
+    line_coach <- lines[index]
+    name_and_surname <- str_extract(line_coach, "[A-ZÉÈÊÎÔÛÄËÏÖÜŸÇ]+\\s+[a-zéèêîôûäëïöüÿç]+")  # Capture un mot en majuscule suivi d'un mot en minuscule
+  })
+}
 
-# Extraire le nom et prénom de la ligne suivante pour chaque occurrence de "Officiel Resp"
-coach <- sapply(index_coach, function(index) {
-  # Extraire la ligne suivante
-  line_next <- lines[index + 1]
-  name_and_surname <- str_extract(line_next, "^[^\\d]+")  # Capture tout avant un chiffre
-  str_trim(name_and_surname)  # Supprimer les espaces superflus
-})
 coach_recevant <- coach[1]
 coach_visiteur <- coach[2]
 
@@ -134,7 +146,8 @@ for (i in which(df_info_match$temps_mort_equipe != "")){
   
 }
 
-df_final <- df_info_match[grepl("^(Temps Mort|But)", df_info_match$action), ] %>% 
+
+df_final <- df_info_match[grepl("^(Temps Mort|But|Tir)", df_info_match$action), ] %>% 
   select(-"action", -"Temps_Sec")
 
 # Ajouter une colonne si l'équipe est en train de perdre, gagner, égalité
