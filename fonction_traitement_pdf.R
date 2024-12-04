@@ -168,3 +168,5 @@ ajout_variables <- function(df_info_match) {
 }
 
 ajout_variables(traitement_pdf("pdf/rencontre_D1H_2425_184.pdf"))
+
+
