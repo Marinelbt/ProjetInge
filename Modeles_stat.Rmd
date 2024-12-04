@@ -1,0 +1,63 @@
+---
+title: "Modèles statistiques"
+author: "Marine"
+date: "2024-12-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Importations
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+```
+
+# Modèle 1 
+
+## Préparation du jeu de données 
+
+```{r}
+data <- read.table("df_pdfs.csv", header = TRUE, sep = ",")
+
+data <- data %>%
+  separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
+  mutate(
+    score_final_r = as.integer(score_final_r),
+    score_final_v = as.integer(score_final_v)
+  )
+
+data_mod1 <- data %>%
+  filter(abs(score_final_r - score_final_v) <= 3) %>% 
+  group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur, score_final_r, score_final_v, fichier) %>%
+  summarise(temps_proche_59_min = max(Temps_Sec[Temps_Sec < 59 * 60], na.rm = TRUE),
+            statut_59_min = first(statut_recevant[Temps_Sec == temps_proche_59_min]),
+            equipe_perdante_59_min = case_when(
+              statut_59_min == -1 ~ "R",  
+              statut_59_min == 1 ~ "V",
+              TRUE ~ NA_character_  
+            ),
+            ecart_59_min = abs(first(ecart_recevant[Temps_Sec == temps_proche_59_min])),
+            TM_derniere_min = if_else(
+              any(Temps_Sec >= 59 * 60 & grepl("temps mort", action, ignore.case = TRUE)),
+              1, 
+              0
+            )
+  ) %>% 
+  filter(!is.na(equipe_perdante_59_min)) %>%
+  mutate(victoire_egalite = ifelse(
+    equipe_perdante_59_min == "R" & !is.na(score_final_r) & !is.na(score_final_v) & (score_final_r - score_final_v) >= 0, 
+    1, 
+    0
+  )) %>% 
+  select(-c(temps_proche_59_min, statut_59_min))
+
+
+
+```
+
