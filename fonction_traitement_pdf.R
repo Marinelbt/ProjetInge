@@ -149,9 +149,17 @@ ajout_variables <- function(df_info_match) {
     }
   }
   
+  # Extraire les index où chaque équipe a fait une action
+  index_visiteur <- which((str_detect(df_info_match$action, "Visiteur|JV"))==TRUE)
+  index_recevant <- which((str_detect(df_info_match$action, "Recevant|JR"))==TRUE)
   
-  # Garder les variables qui nous intéressent
-  df_final <- df_info_match[grepl("^(Temps Mort|But|Tir)", df_info_match$action), ]
+  # Créer une colonne "qui fait l'action"
+  df_info_match$action_equipe <- ""
+  df_info_match$action_equipe[index_recevant] <- "r"
+  df_info_match$action_equipe[index_visiteur] <- "v"
+  
+  
+  df_final <- df_info_match
   # Ajouter une colonne si l'équipe est en train de perdre, gagner, égalité
   df_final$statut_recevant <- rep(0, nrow(df_final))
   for (i in 1:nrow(df_final)) {
@@ -163,6 +171,8 @@ ajout_variables <- function(df_info_match) {
   }
   
   df_final$ecart_recevant <- df_final$score_recevant - df_final$score_visiteur
+  df_final <- df_final %>%
+    mutate(action = substr(as.character(action), 1, 3))
   
   return(df_final)
 }
