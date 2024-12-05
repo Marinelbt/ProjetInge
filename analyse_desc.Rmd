@@ -45,8 +45,8 @@ data <- df %>%
     )
   ) %>%
   ungroup()
-data$statut_tm <- ""
-data$statut_tm <- with(data,
+data$statut_action <- ""
+data$statut_action <- with(data,
                        ifelse(action_equipe == "v",
                               # Inverser les valeurs
                               ifelse(as.character(statut_recevant) == "-1", "1",
@@ -61,7 +61,7 @@ data$statut_tm <- with(data,
 
 # Diagramme nombre de but par période et par statut
 ```{r}
-p1 <- ggplot(data = data[data$action == "Tem",], aes(x=as.factor(periode), fill = statut_tm)) +
+p1 <- ggplot(data = data[data$action == "Tem",], aes(x=as.factor(periode), fill = statut_action)) +
   geom_bar() +
   labs(
     title = "Nombre de temps-mort par période",
@@ -76,7 +76,7 @@ p1 <- ggplot(data = data[data$action == "Tem",], aes(x=as.factor(periode), fill 
   theme_minimal()
 
 p2 <- data %>% filter(Temps_Sec >= 59*60) %>% 
-  ggplot(aes(x=as.factor(periode), fill = statut_tm)) +
+  ggplot(aes(x=as.factor(periode), fill = statut_action)) +
   geom_bar() +
   labs(
     title = "Nombre de temps-\nmort à la dernière \nminute",
@@ -109,6 +109,7 @@ levels_but_tir <- data %>%
   summarise(count=n())
 
 taux_reussite <- levels_but_tir$count[5] / (levels_but_tir$count[5] + levels_but_tir$count[10])
+print(c("Taux de réussite : ",round(taux_reussite,2)))
 
 ```
 
@@ -122,7 +123,7 @@ dt_5min_av <- data %>%
   ) %>%
   unnest(temps_tem) %>% # Transformer les listes en colonnes
   filter(
-    Temps_Sec < temps_tem & Temps_Sec >= temps_tem - 5 * 60
+    Temps_Sec < temps_tem & Temps_Sec >= temps_tem - 5 * 60 & action != "Tem"
   ) %>%
   ungroup()
 
@@ -133,7 +134,7 @@ dt_5min_ap <- data %>%
   ) %>%
   unnest(temps_tem) %>%
   filter(
-    Temps_Sec > temps_tem & Temps_Sec <= temps_tem + 5 * 60
+    Temps_Sec > temps_tem & Temps_Sec <= temps_tem + 5 * 60 & action != "Tem"
   ) %>%
   ungroup()
 ```
@@ -179,6 +180,31 @@ data2 %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>%
   add_header_above(c(" " = 1, "Actions 5min avant un temps_mort" = 2, "Actions 5min après un temps-mort" = 2, "Comparaison" = 1)) %>%
   footnote(general = "N: Nombre d'attaques")
+
+```
+
+```{r}
+
+score_moyen_r <- data %>% 
+ mutate(
+    score_final_r = as.numeric(str_split(score_final, "-", simplify = TRUE)[, 1])
+  ) %>% 
+  group_by(club_recevant) %>% 
+  summarise(score_moyen_r = mean(score_final_r))
+
+score_moyen_v <- data %>% 
+ mutate(
+    score_final_v = as.numeric(str_split(score_final, "-", simplify = TRUE)[, 2])
+  ) %>% 
+  group_by(club_recevant) %>% 
+  summarise(score_moyen_v = mean(score_final_v))
+
+score_moyen <- score_moyen_r %>% 
+  left_join(score_moyen_v, by = "club_recevant") %>% 
+  mutate (score_moyen = (score_moyen_r+score_moyen_v)/2, 
+          club = club_recevant) %>% 
+  select(club, score_moyen) %>% 
+  arrange(desc(score_moyen))
 
 ```
 
