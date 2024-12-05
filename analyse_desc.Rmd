@@ -12,10 +12,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(readr)
 library(ggplot2)
+library(dplyr)
+library(ggpubr)
+library(tidyr)
 ```
 
 ```{r}
-df <- read.csv("df_desc.csv", stringsAsFactors = T)
+df <- read.csv("df_pdfs.csv", stringsAsFactors = T)
 
 colnames(df)
 ```
@@ -29,9 +32,6 @@ df$statut_recevant <- as.factor(df$statut_recevant)
 # Regrouper par période
 ```{r}
 data <- df %>%
-  mutate(
-    action = substr(as.character(action), 1, 3)
-  ) %>%
   group_by(fichier) %>%
   mutate(
     periode = case_when(
@@ -47,25 +47,138 @@ data <- df %>%
   ungroup()
 data$statut_tm <- ""
 data$statut_tm <- with(data,
-  ifelse(action_equipe == "v",
-         # Inverser les valeurs
-         ifelse(as.character(statut_recevant) == "-1", "1",
-                ifelse(as.character(statut_recevant) == "1", "-1", "0")),
-         # Sinon, garder la valeur d'origine
-         as.character(statut_recevant))
+                       ifelse(action_equipe == "v",
+                              # Inverser les valeurs
+                              ifelse(as.character(statut_recevant) == "-1", "1",
+                                     ifelse(as.character(statut_recevant) == "1", "-1", "0")),
+                              # Sinon, garder la valeur d'origine
+                              as.character(statut_recevant))
 )
 
 
 ```
 
+
+# Diagramme nombre de but par période et par statut
 ```{r}
-ggplot(data = data[data$action == "Tem",], aes(x=as.factor(periode), fill = statut_tm)) +
+p1 <- ggplot(data = data[data$action == "Tem",], aes(x=as.factor(periode), fill = statut_tm)) +
   geom_bar() +
   labs(
-    title = "Nombre de Temps-Mort pris par tranche de 10min selon le statut de l'équipe prenant le TM",
+    title = "Nombre de temps-mort par période",
     x = "Période (1 période = 10 min)",
-    y = "Nombre de Temps-Mort"
+    y = "Nombre de Temps-Mort",
+    fill = "Statut équipe"
+  ) +
+  scale_fill_manual(
+    values = c("-1" = "indianred", "0" = "gray", "1" = "darkolivegreen3"),
+    labels = c("-1"="Perd", "0"="Egalité","1"="Gagne")
   ) +
   theme_minimal()
+
+p2 <- data %>% filter(Temps_Sec >= 59*60) %>% 
+  ggplot(aes(x=as.factor(periode), fill = statut_tm)) +
+  geom_bar() +
+  labs(
+    title = "Nombre de temps-\nmort à la dernière \nminute",
+    x = "Période 59min à 60min (fin)",
+    y = "Nombre de Temps-Mort",
+    fill = "Statut équipe"
+  ) +
+  scale_fill_manual(
+    values = c("-1" = "indianred", "0" = "gray", "1" = "darkolivegreen3"),
+    labels = c("-1"="Perd", "0"="Egalité","1"="Gagne")
+  ) +
+  theme_minimal()
+
+ggarrange(p1,p2, widths = c(2,1))
+```
+
+# Pourcentage de tm pris à la dernière minute ayant mené à un but
+```{r}
+count_levels <- data %>%
+  filter(Temps_Sec >= 59*60, but_1min_apres_temps_mort != "") %>% 
+  group_by(but_1min_apres_temps_mort) %>%
+  summarise(count = n())
+
+taux_but_ap_tm <- count_levels$count[2] / (count_levels$count[2]+count_levels$count[1])
+```
+
+```{r}
+levels_but_tir <- data %>% 
+  group_by(action) %>% 
+  summarise(count=n())
+
+taux_reussite <- levels_but_tir$count[5] / (levels_but_tir$count[5] + levels_but_tir$count[10])
+
+```
+
+
+# Data 5 min avant/après un temps-mort
+```{r}
+dt_5min_av <- data %>%
+  group_by(code_rencontre) %>%
+  mutate(
+    temps_tem = list(Temps_Sec[action == "Tem"])
+  ) %>%
+  unnest(temps_tem) %>% # Transformer les listes en colonnes
+  filter(
+    Temps_Sec < temps_tem & Temps_Sec >= temps_tem - 5 * 60
+  ) %>%
+  ungroup()
+
+dt_5min_ap <- data %>%
+  group_by(code_rencontre) %>%
+  mutate(
+    temps_tem = list(Temps_Sec[action == "Tem"])
+  ) %>%
+  unnest(temps_tem) %>%
+  filter(
+    Temps_Sec > temps_tem & Temps_Sec <= temps_tem + 5 * 60
+  ) %>%
+  ungroup()
+```
+
+```{r}
+count_av <- dt_5min_av %>% 
+  group_by(action) %>% 
+  summarise(count=n())
+
+nb_but_av <- count_av$count[count_av$action == "But"]
+nb_tir_av <- count_av$count[count_av$action == "Tir"]
+taux_but_av <- round(nb_but_av / (nb_but_av + nb_tir_av)*100,2)
+taux_tir_av <- round(nb_tir_av / (nb_but_av + nb_tir_av)*100,2)
+
+count_ap <- dt_5min_ap %>% 
+  group_by(action) %>% 
+  summarise(count=n())
+
+nb_but_ap <- count_ap$count[count_ap$action == "But"]
+nb_tir_ap <- count_ap$count[count_ap$action == "Tir"]
+taux_but_ap <- round(nb_but_ap / (nb_but_ap + nb_tir_ap)*100,2)
+taux_tir_ap <- round(nb_tir_ap / (nb_but_ap + nb_tir_ap)*100,2)
+```
+
+```{r}
+library(knitr)
+library(kableExtra)
+
+data2 <- data.frame(
+  Category = c("Actions positives", "But", "Actions négatives", "Tir", "Total"),
+  N_avant = c("", nb_but_av, "", nb_tir_av, nb_but_av+nb_tir_av),
+  Pourc_avant = c("", taux_but_av, "", taux_tir_av, 100),
+  #Percent_actions_before = c("", 37.7, "", "", 62.3, "", 100),
+  N_apres = c("", nb_but_ap, "", nb_tir_ap, nb_tir_ap+nb_but_ap),
+  Pourc_apres = c("", taux_but_ap, "", taux_tir_ap, 100),
+  #Percent_actions_after = c("", 46.8, "", "", 53.2, "", 100)
+  Comparaison = c("", round(taux_but_ap-taux_but_av,2),"", round(taux_tir_ap-taux_tir_av,2),0)
+)
+
+data2 %>%
+  kbl(col.names = c("", "N", "%", "N", "%", "ap - av (%)"),
+      align = c("l", "c", "c", "c", "c","c")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>%
+  add_header_above(c(" " = 1, "Actions 5min avant un temps_mort" = 2, "Actions 5min après un temps-mort" = 2, "Comparaison" = 1)) %>%
+  footnote(general = "N: Nombre d'attaques")
+
 ```
 
