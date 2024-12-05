@@ -73,14 +73,12 @@ if (length(index_coach) == 0){
   
   # Extraire le nom et prénom de la ligne suivante pour chaque occurrence de "Officiel Resp"
   coach <- sapply(index_coach, function(index) {
-    # Extraire la ligne suivante
     line_next <- lines[index + 1]
     name_and_surname <- str_extract(line_next, "^[^\\d]+")  # Capture tout avant un chiffre
     str_trim(name_and_surname)  # Supprimer les espaces superflus
   })
 } else {
   coach <- sapply(index_coach, function(index) {
-    # Extraire la ligne suivante
     line_coach <- lines[index]
     name_and_surname <- str_extract(line_coach, "[A-ZÉÈÊÎÔÛÄËÏÖÜŸÇ]+\\s+[a-zéèêîôûäëïöüÿç]+")  # Capture un mot en majuscule suivi d'un mot en minuscule
   })

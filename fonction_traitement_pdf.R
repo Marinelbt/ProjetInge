@@ -25,13 +25,12 @@ traitement_pdf <- function(pdf_file) {
       score = matches[[1]][, 3],
       action = matches[[1]][, 4],
       stringsAsFactors = FALSE
-    )  # Assurez-vous que le résultat est un dataframe
+    )
   })
   
   # Combiner toutes les lignes extraites en un seul data frame
   df_match <- do.call(rbind, extracted_data)
   
-  # S'assurer que df_match est bien un data frame
   df_match <- as.data.frame(df_match)
   
   # Convertir le temps en secondes pour faciliter le tri
@@ -69,7 +68,6 @@ traitement_pdf <- function(pdf_file) {
     })
   } else {
     coach <- sapply(index_coach, function(index) {
-      # Extraire la ligne suivante
       line_coach <- lines[index]
       name_and_surname <- str_extract(line_coach, "[A-ZÉÈÊÎÔÛÄËÏÖÜŸÇ]+\\s+[a-zéèêîôûäëïöüÿç]+")  # Capture un mot en majuscule suivi d'un mot en minuscule
     })
@@ -105,49 +103,13 @@ traitement_pdf <- function(pdf_file) {
 
 
 ajout_variables <- function(df_info_match) {   
-  # Vérifiez si le type de df_info_match est un dataframe
   if (!is.data.frame(df_info_match)) {
     stop("L'entrée n'est pas un data frame!")
   }
   
-  # Convertir les colonnes nécessaires en numeric si ce n'est pas déjà fait
   df_info_match$Temps_Sec <- as.numeric(df_info_match$Temps_Sec)
   df_info_match$score_recevant <- as.numeric(df_info_match$score_recevant)
   df_info_match$score_visiteur <- as.numeric(df_info_match$score_visiteur)
-  
-  # Extraire les index où chaque équipe a pris un temps mort
-  index_tm_visiteur <- which(!is.na(str_extract(df_info_match$action, "^Temps Mort.+Visiteur$")))
-  index_tm_recevant <- which(!is.na(str_extract(df_info_match$action, "^Temps Mort.+Recevant$")))
-  
-  # Créer une colonne "qui prend le temps mort"
-  df_info_match$temps_mort_equipe <- ""
-  df_info_match$temps_mort_equipe[index_tm_recevant] <- "r"
-  df_info_match$temps_mort_equipe[index_tm_visiteur] <- "v"
-  
-  # But 1 min après temps-mort
-  df_info_match$but_1min_apres_temps_mort <- ""
-  
-  for (i in which(df_info_match$temps_mort_equipe != "")) {
-    if (df_info_match$Temps_Sec[i + 1] > df_info_match$Temps_Sec[i] + 60 |
-        is.na(df_info_match$Temps_Sec[i + 1])) {
-      df_info_match$but_1min_apres_temps_mort[i] <- "non"
-    }
-    
-    ind_1min_apres_tm <- which(df_info_match$Temps_Sec > df_info_match$Temps_Sec[i] & 
-                                 df_info_match$Temps_Sec <= df_info_match$Temps_Sec[i] + 60)
-    
-    for (j in ind_1min_apres_tm) {
-      if (df_info_match$temps_mort_equipe[i] == "r" & 
-          df_info_match$score_recevant[j] > df_info_match$score_recevant[i]) {
-        df_info_match$but_1min_apres_temps_mort[i] <- "oui"
-      } else if (df_info_match$temps_mort_equipe[i] == "v" & 
-                 df_info_match$score_visiteur[j] > df_info_match$score_visiteur[i]) {
-        df_info_match$but_1min_apres_temps_mort[i] <- "oui"
-      } else {
-        df_info_match$but_1min_apres_temps_mort[i] <- "non"
-      }
-    }
-  }
   
   # Extraire les index où chaque équipe a fait une action
   index_visiteur <- which((str_detect(df_info_match$action, "Visiteur|JV"))==TRUE)
@@ -158,9 +120,8 @@ ajout_variables <- function(df_info_match) {
   df_info_match$action_equipe[index_recevant] <- "r"
   df_info_match$action_equipe[index_visiteur] <- "v"
   
-  
   df_final <- df_info_match
-  # Ajouter une colonne si l'équipe est en train de perdre, gagner, égalité
+  # Ajouter une colonne si l'équipe recevant est en train de perdre, gagner, égalité
   df_final$statut_recevant <- rep(0, nrow(df_final))
   for (i in 1:nrow(df_final)) {
     if (df_final$score_recevant[i] > df_final$score_visiteur[i]) {
