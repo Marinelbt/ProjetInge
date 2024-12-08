@@ -27,54 +27,54 @@ library(ggplot2)
 ```{r}
 data <- read.table("df_pdfs.csv", header = TRUE, sep = ",")
 
-classement_D1H_2425 <- read.table("classement_D1H_2425.csv", header = TRUE, sep = ",")
+classement_D1H_2223 <- read.table("classement_D1H_2223.csv", header = TRUE, sep = ",")
 classement_D1H_2324 <- read.table("classement_D1H_2324.csv", header = TRUE, sep = ",")
-classement_D1F_2425 <- read.table("classement_D1F_2425.csv", header = TRUE, sep = ",")
+classement_D1F_2223 <- read.table("classement_D1F_2223.csv", header = TRUE, sep = ",")
 classement_D1F_2324 <- read.table("classement_D1F_2324.csv", header = TRUE, sep = ",")
-classement_D2H_2425 <- read.table("classement_D2H_2425.csv", header = TRUE, sep = ",")
+classement_D2H_2223 <- read.table("classement_D2H_2223.csv", header = TRUE, sep = ",")
 classement_D2H_2324 <- read.table("classement_D2H_2324.csv", header = TRUE, sep = ",")
-classement_D2F_2425 <- read.table("classement_D2F_2425.csv", header = TRUE, sep = ",")
+classement_D2F_2223 <- read.table("classement_D2F_2223.csv", header = TRUE, sep = ",")
 classement_D2F_2324 <- read.table("classement_D2F_2324.csv", header = TRUE, sep = ",")
 
-classement_D1H_2425$division <- "D1"
-classement_D1H_2425$saison <- "2425"
-classement_D1H_2425$HF <- "H"
+classement_D1H_2223$division <- "D1"
+classement_D1H_2223$saison <- "2223"
+classement_D1H_2223$HF <- "H"
 
 classement_D1H_2324$division <- "D1"
 classement_D1H_2324$saison <- "2324"
 classement_D1H_2324$HF <- "H"
 
-classement_D1F_2425$division <- "D1"
-classement_D1F_2425$saison <- "2425"
-classement_D1F_2425$HF <- "F"
+classement_D1F_2223$division <- "D1"
+classement_D1F_2223$saison <- "2223"
+classement_D1F_2223$HF <- "F"
 
 classement_D1F_2324$division <- "D1"
 classement_D1F_2324$saison <- "2324"
 classement_D1F_2324$HF <- "F"
 
-classement_D2H_2425$division <- "D2"
-classement_D2H_2425$saison <- "2425"
-classement_D2H_2425$HF <- "H"
+classement_D2H_2223$division <- "D2"
+classement_D2H_2223$saison <- "2223"
+classement_D2H_2223$HF <- "H"
 
 classement_D2H_2324$division <- "D2"
 classement_D2H_2324$saison <- "2324"
 classement_D2H_2324$HF <- "H"
 
-classement_D2F_2425$division <- "D2"
-classement_D2F_2425$saison <- "2425"
-classement_D2F_2425$HF <- "F"
+classement_D2F_2223$division <- "D2"
+classement_D2F_2223$saison <- "2223"
+classement_D2F_2223$HF <- "F"
 
 classement_D2F_2324$division <- "D2"
 classement_D2F_2324$saison <- "2324"
 classement_D2F_2324$HF <- "F"
 
-classements <- bind_rows(classement_D1H_2425, 
+classements <- bind_rows(classement_D1H_2223, 
                          classement_D1H_2324,
-                         classement_D1F_2425,
+                         classement_D1F_2223,
                          classement_D1F_2324,
-                         classement_D2H_2425,
+                         classement_D2H_2223,
                          classement_D2H_2324,
-                         classement_D2F_2425,
+                         classement_D2F_2223,
                          classement_D2F_2324)
 
 data <- data %>%
@@ -85,7 +85,6 @@ data <- data %>%
   )
 
 data_mod1 <- data %>%
-  filter(abs(score_final_r - score_final_v) <= 3) %>%
   group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur, score_final_r, score_final_v, fichier) %>%
   summarise(temps_proche_59_min = max(Temps_Sec[Temps_Sec < 59 * 60], na.rm = TRUE),
             statut_59_min_r = first(statut_recevant[Temps_Sec == temps_proche_59_min]),
@@ -113,6 +112,7 @@ data_mod1 <- data %>%
               0
               )
             ) %>%
+  filter(abs(score_recevant_59_min - score_visiteur_59_min) <= 3) %>% 
   pivot_longer(
     cols = c(statut_59_min_r, statut_59_min_v), 
     names_to = "equipe", 
@@ -141,9 +141,19 @@ data_mod1 <- data %>%
       equipe == "V" & TM_derniere_min_v == 1 ~ 1,
       TRUE ~ 0
     ),
+    TM_derniere_min_adverse = case_when(
+      equipe == "V" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "R" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
     HF = case_when(
       grepl("D1F", fichier, ignore.case = TRUE) | grepl("D2F", fichier, ignore.case = TRUE) ~ "F",
       TRUE ~ "H"
+    ),
+     DM = case_when(
+      equipe == "R" & DM_r == 1 ~ 1,
+      equipe == "V" & DM_v == 1 ~ 1,
+      TRUE ~ 0
     ),
     DM_adverse = case_when(
       equipe == "V" & DM_r == 1 ~ 1,
@@ -155,7 +165,7 @@ data_mod1 <- data %>%
       grepl("D2", fichier, ignore.case = TRUE) ~ "D2"
     ),
     saison = case_when(
-      grepl("2425", fichier, ignore.case = TRUE) ~ "2425",
+      grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
       grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
     )
   ) %>% 
@@ -170,7 +180,7 @@ data_mod1 <- data_mod1 %>%
   mutate(club_opp = case_when(equipe == "R" ~ club_visiteur, equipe == "V" ~ club_recevant)) %>%
   mutate(club_opp = str_to_lower(str_trim(club_opp))) %>%
   left_join(
-    classements[, -c(3:10)],
+    classements[, -c(1,4:10)],
     by = c(
       "division" = "division",
       "saison" = "saison",
@@ -178,10 +188,10 @@ data_mod1 <- data_mod1 %>%
       "club_ref" = "Club"
     )
   ) %>%
-  mutate(pos_classement = Pos.) %>%
-  select(-c(Pos.)) %>%
+  mutate(points_classement = Points) %>%
+  select(-c(Points)) %>%
   left_join(
-    classements[, -c(3:10)],
+    classements[, -c(1,4:10)],
     by = c(
       "division" = "division",
       "saison" = "saison",
@@ -189,19 +199,19 @@ data_mod1 <- data_mod1 %>%
       "club_opp" = "Club"
     )
   ) %>%
-  mutate(pos_opp = Pos.) %>%
-  select(-c(Pos.)) 
+  mutate(points_opp = Points) %>%
+  select(-c(Points)) 
 
-clubs <- data.frame(feuille_match = c(unique(data_mod1$club_ref[is.na(data_mod1$pos_classement)])),
-                    classement = c("js cherbourgeoise  manche hb",
-                                   "provence aix universite club handball",
-                                   "limoges hand 87",
-                                   "paris 92",
+clubs <- data.frame(feuille_match = c(unique(data_mod1$club_ref[is.na(data_mod1$points_classement)])),
+                    classement = c("paris 92",
                                    "st amand handball -  porte du hainaut",
                                    "handball clermont auvergne metropole 63",
-                                   "bouillargues handball nimes mediterranee",
-                                   "le pouzin hb 07",
-                                   "cherbourg js manche hb"
+                                   "nancy handball",
+                                   "limoges hand 87",
+                                   "js cherbourgeoise  manche hb",
+                                   "pays aix universite club handball",
+                                   "bouillargues handball nimes metropole",
+                                   "le pouzin hb 07"
                                   ))
 
 data_mod1 <- data_mod1 %>%
@@ -216,7 +226,7 @@ data_mod1 <- data_mod1 %>%
 
 data_mod1 <- data_mod1 %>%
   left_join(
-    classements[, -c(3:10)],
+    classements[, -c(1,4:10)],
     by = c(
       "division" = "division",
       "saison" = "saison",
@@ -224,8 +234,8 @@ data_mod1 <- data_mod1 %>%
       "club_ref" = "Club"
     )
   ) %>%
-  mutate(pos_classement = Pos.) %>%
-  select(-Pos.)
+  mutate(points_classement = Points) %>%
+  select(-Points)
 
 data_mod1 <- data_mod1 %>%
   left_join(
@@ -239,7 +249,7 @@ data_mod1 <- data_mod1 %>%
 
 data_mod1 <- data_mod1 %>%
   left_join(
-    classements[, -c(3:10)],
+    classements[, -c(1,4:10)],
     by = c(
       "division" = "division",
       "saison" = "saison",
@@ -247,10 +257,23 @@ data_mod1 <- data_mod1 %>%
       "club_opp" = "Club"
     )
   ) %>%
-  mutate(pos_opp = Pos.) %>%
-  select(-c(Pos., club_ref, club_opp)) %>% 
-  mutate(diff_classement = pos_opp - pos_classement)
-  
+  mutate(points_opp = Points) %>%
+  select(-c(Points)) %>% 
+  mutate(diff_classement = points_opp - points_classement)
+
+# Création d'un index unique pour chaque match
+data_mod1 <- data_mod1 %>%
+  group_by(code_rencontre) %>%
+  mutate(match_index = cur_group_id()) %>%
+  ungroup()
+
+# Filtrage pour garder l'équipe R pour les matchs avec un index impair,
+# et l'équipe V pour les matchs avec un index pair
+data_mod1 <- data_mod1 %>%
+  filter(
+    (match_index %% 2 == 1 & equipe == "R") |  # Garder l'équipe R pour les index impairs
+    (match_index %% 2 == 0 & equipe == "V")    # Garder l'équipe V pour les index pairs
+  ) 
 
 ```
 
