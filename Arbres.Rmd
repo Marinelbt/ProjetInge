@@ -1,0 +1,75 @@
+---
+title: "Machine learning"
+author: "Amélie Brejot"
+date: "2024-12-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(rsample)
+library(rpart)
+library(rpart.plot)
+library(caret)
+```
+
+
+# Arbres
+
+```{r}
+set.seed(123)
+data <- read.csv("data_mod1.csv")
+#summary(data)
+data.split <- initial_split(data, prop = 3/4)
+data.train <- training(data.split)
+data.test <- testing(data.split)
+```
+
+```{r}
+data$effet_positif <- as.factor(data$effet_positif)
+data$TM_derniere_min <- as.factor(data$TM_derniere_min)
+data$TM_derniere_min_adverse <- as.factor(data$TM_derniere_min_adverse)
+data$HF <- as.factor(data$HF)
+data$equipe <- as.factor(data$equipe)
+data$DM_adverse <- as.factor(data$DM_adverse)
+data$DM <- as.factor(data$DM)
+data$statut_59_min <- as.factor(data$statut_59_min)
+```
+
+
+```{r}
+tree <- rpart(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + equipe + diff_classement + DM_adverse + DM + statut_59_min, data = data.train, method = "class")
+plot(tree)
+text(tree)
+
+plotcp(tree)
+printcp(tree)
+
+rpart.plot(tree)
+```
+Différence de classement selon un club référence choisi (recevant ou visiteur)
+
+1 - On sépare selon le statut à 59min, ceux qui sont en train de perdre et à égalité d'un coté puis ceux qui sont en train de gagner de l'autre.
+2.1 - Si l'équipe en train de gagner. STOP => effet positif
+2.2 - Si l'équipe n'est pas en train de gagner, on regarde si l'équipe à pris un temps-mort dans la dernière minute.
+3.1 - Si l'équipe n'a pas pris de temps-mort dans la dernière mminute. STOP => pas d'effet positif
+3.2 - Si l'équipe a pris un temps-mort à la dernière minut, on regarde si la différence de points au classement est supérieure ou égale -13.
+4.1 - Si l'écart de points est supérieur ou égal à -13. STOP => pas d'effet positif
+4.2 - Sinon. STOP => effet positif
+
+Interprétation d'une feuile :
+Dans le cas où l'équipe est en train de gagner, il y a 41% des données dans cette feuille et on prédit un effet positif (1) avec une forte probabilité (89% des données de cette feuille sont réellement de classe 1).
+
+Feuille (0, 0.13, 43%), la classe 0 est choisie, c'est la classe majoritaire.
+
+
+```{r}
+prediction <- predict(tree, data.test, type = "class")
+
+data.test$effet_positif <- factor(data.test$effet_positif, levels = levels(prediction))
+
+confusionMatrix(prediction, data.test$effet_positif)
+```
+
+
