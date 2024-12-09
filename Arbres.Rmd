@@ -48,21 +48,11 @@ printcp(tree)
 
 rpart.plot(tree)
 ```
-Différence de classement selon un club référence choisi (recevant ou visiteur)
 
-1 - On sépare selon le statut à 59min, ceux qui sont en train de perdre et à égalité d'un coté puis ceux qui sont en train de gagner de l'autre.
-2.1 - Si l'équipe en train de gagner. STOP => effet positif
-2.2 - Si l'équipe n'est pas en train de gagner, on regarde si l'équipe à pris un temps-mort dans la dernière minute.
-3.1 - Si l'équipe n'a pas pris de temps-mort dans la dernière mminute. STOP => pas d'effet positif
-3.2 - Si l'équipe a pris un temps-mort à la dernière minut, on regarde si la différence de points au classement est supérieure ou égale -13.
-4.1 - Si l'écart de points est supérieur ou égal à -13. STOP => pas d'effet positif
-4.2 - Sinon. STOP => effet positif
-
-Interprétation d'une feuile :
-Dans le cas où l'équipe est en train de gagner, il y a 41% des données dans cette feuille et on prédit un effet positif (1) avec une forte probabilité (89% des données de cette feuille sont réellement de classe 1).
-
-Feuille (0, 0.13, 43%), la classe 0 est choisie, c'est la classe majoritaire.
-
+Analyse d'une feuille (0, 0.15, 43%) :
+La classe majoritaire choisie est pas d'effet positif pour le recevant (0)
+Cette classe représente 15% de la feuille.
+Cette feuille contient 43% du jeu de données.
 
 ```{r}
 prediction <- predict(tree, data.test, type = "class")
