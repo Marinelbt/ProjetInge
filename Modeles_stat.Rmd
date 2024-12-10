@@ -38,6 +38,7 @@ classement_D2H_2324 <- read.table("classement_D2H_2324.csv", header = TRUE, sep 
 classement_D2F_2223 <- read.table("classement_D2F_2223.csv", header = TRUE, sep = ",")
 classement_D2F_2324 <- read.table("classement_D2F_2324.csv", header = TRUE, sep = ",")
 
+
 classement_D1H_2223$division <- "D1"
 classement_D1H_2223$saison <- "2223"
 classement_D1H_2223$HF <- "H"
@@ -70,6 +71,28 @@ classement_D2F_2324$division <- "D2"
 classement_D2F_2324$saison <- "2324"
 classement_D2F_2324$HF <- "F"
 
+classement_D1H_2122 <- read.table("classement_D1H_2122.csv", header = TRUE, sep = ",")
+classement_D1F_2122 <- read.table("classement_D1F_2122.csv", header = TRUE, sep = ",")
+classement_D2H_2122 <- read.table("classement_D2H_2122.csv", header = TRUE, sep = ",")
+classement_D2F_2122 <- read.table("classement_D2F_2122.csv", header = TRUE, sep = ",")
+
+classement_D1H_2122$division <- "D1"
+classement_D1H_2122$saison <- "2122"
+classement_D1H_2122$HF <- "H"
+
+classement_D1F_2122$division <- "D1"
+classement_D1F_2122$saison <- "2122"
+classement_D1F_2122$HF <- "F"
+
+classement_D2H_2122$division <- "D2"
+classement_D2H_2122$saison <- "2122"
+classement_D2H_2122$HF <- "H"
+
+classement_D2F_2122$division <- "D2"
+classement_D2F_2122$saison <- "2122"
+classement_D2F_2122$HF <- "F"
+
+
 classements <- bind_rows(classement_D1H_2223, 
                          classement_D1H_2324,
                          classement_D1F_2223,
@@ -77,7 +100,14 @@ classements <- bind_rows(classement_D1H_2223,
                          classement_D2H_2223,
                          classement_D2H_2324,
                          classement_D2F_2223,
-                         classement_D2F_2324)
+                         classement_D2F_2324,
+                         classement_D1H_2122,
+                         classement_D1F_2122,
+                         classement_D2H_2122,
+                         classement_D2F_2122
+                         )
+
+write.csv(classements, "classements.csv", row.names = FALSE)
 
 data <- data %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
@@ -335,7 +365,7 @@ data_mod1$DM_adverse <- as.factor(data_mod1$DM_adverse)
 data_mod1$DM <- as.factor(data_mod1$DM)
 data_mod1$statut_59_min <- as.factor(data_mod1$statut_59_min)
 
-mod0 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + equipe + diff_classement + DM_adverse + DM, data = data_mod1, family = "binomial")
+mod0 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + diff_classement + DM_adverse + DM, data = data_mod1, family = "binomial")
 summary(mod0)
 ```
 - Prendre un temps-mort à la dernière minute multiplie les odds de "remonter le match" par exp(0.66) ≈ 1,93 donc cela augmente les chances de "remonter le match"
@@ -351,7 +381,7 @@ Si elle est moins bien classée, l'écart de niveau complique davantage une remo
 ```{r}
 contrasts(data_mod1$statut_59_min) <- contr.sum(levels(data_mod1$statut_59_min))
 
-mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + equipe + diff_classement + DM_adverse + DM + statut_59_min, data = data_mod1, family = "binomial")
+mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + diff_classement + DM_adverse + DM + statut_59_min, data = data_mod1, family = "binomial")
 summary(mod1)
 
 mod1_summary <- tidy(mod1)
@@ -382,21 +412,59 @@ Si elle est moins bien classée, l'écart de niveau complique davantage une remo
 - Etre à égalité à 59 min multiplie les odds de "remonter le match" par exp(-0.90) ≈ 0,41 donc cela diminue les chances de "remonter le match"
 - Etre en tarin de gagner à 59 min multiplie les odds de "remonter le match" par exp(2.33) ≈ 10,3 donc cela augmente les chances de gagner le match 
 
-```{r}
-segments <- cvsegments(k = 10, N = nrow(data_mod1))
-cvpred <- rep(0, nrow(data_mod1))
-for (k in 1:10){
-  data_train <- data_mod1[-segments[[k]], ]
-  data_test <- data_mod1[segments[[k]], ]
-  mod <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + equipe + diff_classement + DM_adverse + DM + statut_59_min, data = data_train, family = "binomial")
-  mod <- step(mod, direction = "both", trace = 0, k = log(nrow(data_train)))
-    probs <- predict(mod, newdata = data_test, type = "response")
-  cvpred[segments[[k]]] <- ifelse(probs > 0.5, 1, 0)
-}
 
-# Calcul de l'accuracy
-accuracy <- mean(cvpred == data_mod1$effet_positif)
-accuracy
+```{r}
+data_egalite <- data_mod1 %>% 
+  filter(statut_59_min == "0")
+
+mod_egalite1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + diff_classement + DM_adverse + DM, data = data_egalite, family = "binomial")
+summary(mod_egalite1)
+
+mod_egalite2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_egalite, family = "binomial")
+summary(mod_egalite2)
+
+
+```
+```{r}
+data_perdant <- data_mod1 %>% 
+  filter(statut_59_min == "-1")
+
+mod_perdant1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + diff_classement + DM_adverse + DM, data = data_perdant, family = "binomial")
+summary(mod_perdant1)
+
+mod_perdant2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_perdant, family = "binomial")
+summary(mod_perdant2)
+```
+
+```{r}
+data_gagnant <- data_mod1 %>% 
+  filter(statut_59_min == "1")
+
+mod_gagnant1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + diff_classement + DM_adverse + DM, data = data_gagnant, family = "binomial")
+summary(mod_gagnant1)
+
+mod_gagnant2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_gagnant, family = "binomial")
+summary(mod_gagnant2)
+```
+
+
+
+
+```{r}
+# segments <- cvsegments(k = 10, N = nrow(data_mod1))
+# cvpred <- rep(0, nrow(data_mod1))
+# for (k in 1:10){
+#   data_train <- data_mod1[-segments[[k]], ]
+#   data_test <- data_mod1[segments[[k]], ]
+#   mod <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + equipe + diff_classement + DM_adverse + DM + statut_59_min, data = data_train, family = "binomial")
+#   mod <- step(mod, direction = "both", trace = 0, k = log(nrow(data_train)))
+#     probs <- predict(mod, newdata = data_test, type = "response")
+#   cvpred[segments[[k]]] <- ifelse(probs > 0.5, 1, 0)
+# }
+# 
+# # Calcul de l'accuracy
+# accuracy <- mean(cvpred == data_mod1$effet_positif)
+# accuracy
 
 ```
 
