@@ -20,6 +20,7 @@ library(stringr)
 library(broom)
 library(RcmdrMisc)
 library(pls)
+library(BradleyTerry2)
 ```
 
 # Modèle 1 
@@ -27,7 +28,7 @@ library(pls)
 ## Préparation du jeu de données 
 
 ```{r}
-data <- read.table("df_pdfs_2.csv", header = TRUE, sep = ",")
+data <- read.table("df_pdfs.csv", header = TRUE, sep = ",")
 
 classement_D1H_2223 <- read.table("Classements/classement_D1H_2223.csv", header = TRUE, sep = ",")
 classement_D1H_2324 <- read.table("Classements/classement_D1H_2324.csv", header = TRUE, sep = ",")
@@ -446,6 +447,118 @@ summary(mod_gagnant1)
 
 mod_gagnant2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_gagnant, family = "binomial")
 summary(mod_gagnant2)
+```
+
+# Modèle de Bradley-Terry généralisé 
+
+```{r}
+data_bradley_terry <- data %>%
+  group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur, score_final_r, score_final_v, fichier) %>%
+  summarise(
+    temps_proche_59_min = max(Temps_Sec[Temps_Sec < 59 * 60], na.rm = TRUE),
+    statut_59_min_r = first(statut_recevant[Temps_Sec == temps_proche_59_min]),
+    statut_59_min_v = -statut_59_min_r,
+    score_recevant_59_min = first(score_recevant[Temps_Sec == temps_proche_59_min]),
+    score_visiteur_59_min = first(score_visiteur[Temps_Sec == temps_proche_59_min]),
+    TM_derniere_min_r = if_else(
+      any(Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "r"),
+      1, 
+      0
+    ),
+    TM_derniere_min_v = if_else(
+      any(Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "v"),
+      1, 
+      0
+    ),
+    DM_r = if_else(
+      any(Temps_Sec >= 57 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "r"),
+      1, 
+      0
+    ),
+    DM_v = if_else(
+      any(Temps_Sec >= 57 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "v"),
+      1, 
+      0
+    )
+  ) %>%
+  filter(abs(score_recevant_59_min - score_visiteur_59_min) <= 3) %>% 
+  pivot_longer(
+    cols = c(statut_59_min_r, statut_59_min_v), 
+    names_to = "equipe", 
+    values_to = "statut_59_min"
+  ) %>%
+  mutate(
+    equipe = case_when(
+      equipe == "statut_59_min_r" ~ "R",  # Recevant
+      equipe == "statut_59_min_v" ~ "V"   # Visiteur
+    ),
+    statut_final = case_when(
+      equipe == "R" & score_final_r > score_final_v ~ 1,
+      equipe == "V" & score_final_v > score_final_r ~ 1,
+      score_final_v == score_final_r ~ 0,
+      equipe == "R" & score_final_r < score_final_v ~ -1,
+      equipe == "V" & score_final_v < score_final_r ~ -1
+    ),
+    effet_positif = case_when(
+      statut_59_min == -1 & (statut_final == 0 | statut_final == 1) ~ 1,
+      statut_59_min == 1 & statut_final == 1 ~ 1,
+      statut_59_min == 0 & statut_final == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    # Attribution des valeurs de TM et DM pour chaque équipe
+    TM_derniere_min = case_when(
+      equipe == "R" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "V" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    TM_derniere_min_adverse = case_when(
+      equipe == "V" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "R" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    HF = case_when(
+      grepl("D1F", fichier, ignore.case = TRUE) | grepl("D2F", fichier, ignore.case = TRUE) ~ "F",
+      TRUE ~ "H"
+    ),
+    DM = case_when(
+      equipe == "R" & DM_r == 1 ~ 1,
+      equipe == "V" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    DM_adverse = case_when(
+      equipe == "V" & DM_r == 1 ~ 1,
+      equipe == "R" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    division = case_when(
+      grepl("D1", fichier, ignore.case = TRUE) ~ "D1",
+      grepl("D2", fichier, ignore.case = TRUE) ~ "D2"
+    ),
+    saison = case_when(
+      grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
+      grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+    )
+  ) %>% 
+  select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min)) %>%
+  mutate(
+    victoires_r = if_else(score_final_r > score_final_v, 1, 0),
+    victoires_v = if_else(score_final_v > score_final_r, 1, 0)
+  )
+
+all_teams <- unique(c(data_bradley_terry$club_recevant, data_bradley_terry$club_visiteur))
+data_bradley_terry$club_recevant <- factor(data_bradley_terry$clrecevant, levels = all_teams)
+data_bradley_terry$club_visiteur <- factor(data_bradley_terry$club_visiteur, levels = all_teams)
+
+bt_model <- BTm(
+  outcome = cbind(victoires_r, victoires_v),
+  player1 = club_recevant,
+  player2 = club_visiteur,
+  formula = ~ TM_derniere_min + DM_adverse,
+  data = data_bradley_terry,
+)
+
+summary(bt_model)
+
 ```
 
 
