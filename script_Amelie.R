@@ -176,7 +176,7 @@ df_final$journee <- journee
 # Egalité : +1
 # Défaite : +0
 
-df <- read.csv("df_pdfs_2.csv")
+df <- read.csv("df_pdfs.csv")
 df <- df %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
   mutate(
