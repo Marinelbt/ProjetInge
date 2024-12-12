@@ -176,17 +176,31 @@ df_final$journee <- journee
 # Egalité : +1
 # Défaite : +0
 
-df <- read.csv("data_mod1.csv")
+df <- read.csv("df_pdfs_2.csv")
+df <- df %>%
+  separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
+  mutate(
+    score_final_r = as.integer(score_final_r),
+    score_final_v = as.integer(score_final_v)
+  )
+
+df <- df %>%
+  mutate(
+    saison = str_extract(fichier, "\\d{4}"),           
+    HF = str_extract(fichier, "[FH]"),              
+    division = str_extract(fichier, "D\\d"),          
+    match_num = str_extract(fichier, "_\\d+_\\d{4}") %>%
+      str_extract("^\\d+")
+  ) %>% 
+  select(-match_num)
 
 df <- df %>% select("code_rencontre","club_recevant","club_visiteur", "score_final_r", "score_final_v",
-              "division","HF","saison", "fichier")
+              "division","HF","saison", "journee", "fichier")
 
-df_j <- read.csv("df_pdfs_2.csv")
+df_unique <- df %>%
+  distinct(code_rencontre, .keep_all = TRUE)
 
-df_j <- df_j %>% group_by(code_rencontre) %>% 
-  summarize(journee = unique(journee), .groups = "drop")
 
-df <- df %>% left_join(df_j, by = "code_rencontre")
 
 for (i in 1:nrow(df)){
   if (df$score_final_r[i] > df$score_final_v[i]) {
@@ -219,4 +233,3 @@ print(points_par_club)
 
 points_par_club %>%  group_by(club)
 
-length(which(!pdf$fichier %in% df$fichier))

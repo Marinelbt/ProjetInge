@@ -78,6 +78,7 @@ rpart.plot(tree)
 dev.off()
 ```
 Complexité cp=0.0005, permet de rajouter un noeud après éqquipe gagnante mais on se retrouve avec des feuilles vides à la fin.
+cp = 0.0040 est le minimum de complexité à avoir pour ne pas avoir de feuille avec 0% de données.
 
 Analyse d'une feuille (0, 0.15, 43%) :
 La classe majoritaire choisie est pas d'effet positif pour le recevant (0)
