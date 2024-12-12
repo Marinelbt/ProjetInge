@@ -98,6 +98,12 @@ traitement_pdf <- function(pdf_file) {
   df_info_match$score_recevant <- as.numeric(df_info_match$score_recevant)
   df_info_match$score_visiteur <- as.numeric(df_info_match$score_visiteur)
   
+  # Journée
+  ind_journee <- which(str_detect(lines, "J[0-9]")==T)
+  ligne_J <- lines[ind_journee]
+  journee <- regmatches(ligne_J, regexpr("J\\d+", ligne_J))
+  df_info_match$journee <- journee
+  
   return(df_info_match)
 }
 
@@ -138,6 +144,6 @@ ajout_variables <- function(df_info_match) {
   return(df_final)
 }
 
-ajout_variables(traitement_pdf("pdf/rencontre_D1H_2425_184.pdf"))
+ajout_variables(traitement_pdf("pdf/rencontre_D1F_2223_2987.pdf"))
 
 

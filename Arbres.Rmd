@@ -20,13 +20,7 @@ library(caret)
 ```{r}
 set.seed(123)
 data <- read.csv("data_mod1.csv")
-#summary(data)
-data.split <- initial_split(data, prop = 3/4)
-data.train <- training(data.split)
-data.test <- testing(data.split)
-```
 
-```{r}
 data$effet_positif <- as.factor(data$effet_positif)
 data$TM_derniere_min <- as.factor(data$TM_derniere_min)
 data$TM_derniere_min_adverse <- as.factor(data$TM_derniere_min_adverse)
@@ -35,19 +29,55 @@ data$equipe <- as.factor(data$equipe)
 data$DM_adverse <- as.factor(data$DM_adverse)
 data$DM <- as.factor(data$DM)
 data$statut_59_min <- as.factor(data$statut_59_min)
+
+data.split <- initial_split(data, prop = 3/4)
+data.train <- training(data.split)
+data.test <- testing(data.split)
 ```
 
 
-```{r}
-control_params <- rpart.control(maxdepth = 30, minsplit = 2, cp = 0.0020)
 
-tree <- rpart(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + statut_59_min, data = data.train, method = "class", control = control_params)
+```{r}
+control_params <- rpart.control(maxdepth = 30, minsplit = 2, cp = 0.0040)
+# grid <- expand.grid(
+#   cp = c(0.001, 0.0015, 0.0023, 0.0037)
+# )
+# control <- trainControl(method = "cv", number = 5)
+# 
+# model <- train(
+#   effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + statut_59_min,
+#   data = data.train,
+#   method = "rpart",
+#   trControl = control, 
+#   tuneGrid = grid
+# )
+# 
+# print(model)
+# print(model$bestTune)
+# 
+# rpart.plot(model$finalModel)
+
+tree <- rpart(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + statut_59_min, 
+              data = data.train, 
+              method = "class",
+              control = control_params)
+
+tree_HF <- rpart(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + statut_59_min + HF, 
+              data = data.train, 
+              method = "class",
+              control = control_params)
 
 plotcp(tree)
 printcp(tree)
 
 rpart.plot(tree)
+rpart.plot(tree_HF)
+
+pdf("arbre.pdf", width = 10, height = 7)
+rpart.plot(tree)
+dev.off()
 ```
+Complexité cp=0.0005, permet de rajouter un noeud après éqquipe gagnante mais on se retrouve avec des feuilles vides à la fin.
 
 Analyse d'une feuille (0, 0.15, 43%) :
 La classe majoritaire choisie est pas d'effet positif pour le recevant (0)
