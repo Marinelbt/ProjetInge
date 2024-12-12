@@ -27,16 +27,16 @@ library(pls)
 ## Préparation du jeu de données 
 
 ```{r}
-data <- read.table("df_pdfs.csv", header = TRUE, sep = ",")
+data <- read.table("df_pdfs_2.csv", header = TRUE, sep = ",")
 
-classement_D1H_2223 <- read.table("classement_D1H_2223.csv", header = TRUE, sep = ",")
-classement_D1H_2324 <- read.table("classement_D1H_2324.csv", header = TRUE, sep = ",")
-classement_D1F_2223 <- read.table("classement_D1F_2223.csv", header = TRUE, sep = ",")
-classement_D1F_2324 <- read.table("classement_D1F_2324.csv", header = TRUE, sep = ",")
-classement_D2H_2223 <- read.table("classement_D2H_2223.csv", header = TRUE, sep = ",")
-classement_D2H_2324 <- read.table("classement_D2H_2324.csv", header = TRUE, sep = ",")
-classement_D2F_2223 <- read.table("classement_D2F_2223.csv", header = TRUE, sep = ",")
-classement_D2F_2324 <- read.table("classement_D2F_2324.csv", header = TRUE, sep = ",")
+classement_D1H_2223 <- read.table("Classements/classement_D1H_2223.csv", header = TRUE, sep = ",")
+classement_D1H_2324 <- read.table("Classements/classement_D1H_2324.csv", header = TRUE, sep = ",")
+classement_D1F_2223 <- read.table("Classements/classement_D1F_2223.csv", header = TRUE, sep = ",")
+classement_D1F_2324 <- read.table("Classements/classement_D1F_2324.csv", header = TRUE, sep = ",")
+classement_D2H_2223 <- read.table("Classements/classement_D2H_2223.csv", header = TRUE, sep = ",")
+classement_D2H_2324 <- read.table("Classements/classement_D2H_2324.csv", header = TRUE, sep = ",")
+classement_D2F_2223 <- read.table("Classements/classement_D2F_2223.csv", header = TRUE, sep = ",")
+classement_D2F_2324 <- read.table("Classements/classement_D2F_2324.csv", header = TRUE, sep = ",")
 
 
 classement_D1H_2223$division <- "D1"
@@ -71,10 +71,10 @@ classement_D2F_2324$division <- "D2"
 classement_D2F_2324$saison <- "2324"
 classement_D2F_2324$HF <- "F"
 
-classement_D1H_2122 <- read.table("classement_D1H_2122.csv", header = TRUE, sep = ",")
-classement_D1F_2122 <- read.table("classement_D1F_2122.csv", header = TRUE, sep = ",")
-classement_D2H_2122 <- read.table("classement_D2H_2122.csv", header = TRUE, sep = ",")
-classement_D2F_2122 <- read.table("classement_D2F_2122.csv", header = TRUE, sep = ",")
+classement_D1H_2122 <- read.table("Classements/classement_D1H_2122.csv", header = TRUE, sep = ",")
+classement_D1F_2122 <- read.table("Classements/classement_D1F_2122.csv", header = TRUE, sep = ",")
+classement_D2H_2122 <- read.table("Classements/classement_D2H_2122.csv", header = TRUE, sep = ",")
+classement_D2F_2122 <- read.table("Classements/classement_D2F_2122.csv", header = TRUE, sep = ",")
 
 classement_D1H_2122$division <- "D1"
 classement_D1H_2122$saison <- "2122"
@@ -425,6 +425,7 @@ summary(mod_egalite2)
 
 
 ```
+
 ```{r}
 data_perdant <- data_mod1 %>% 
   filter(statut_59_min == "-1")

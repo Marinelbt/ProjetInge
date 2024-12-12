@@ -162,4 +162,61 @@ for (i in 1:nrow(df_final)){
 
 df_final$ecart_recevant <- df_final$score_recevant - df_final$score_visiteur
 
+###### Récupérer la journée ######
 
+ind_journee <- which(str_detect(lines, "J[0-9]")==T)
+ligne_J <- lines[ind_journee]
+journee <- regmatches(ligne_J, regexpr("J\\d+", ligne_J))
+
+df_final$journee <- journee
+
+###### Classement par journée ######
+
+# Victoire : +2
+# Egalité : +1
+# Défaite : +0
+
+df <- read.csv("data_mod1.csv")
+
+df <- df %>% select("code_rencontre","club_recevant","club_visiteur", "score_final_r", "score_final_v",
+              "division","HF","saison", "fichier")
+
+df_j <- read.csv("df_pdfs_2.csv")
+
+df_j <- df_j %>% group_by(code_rencontre) %>% 
+  summarize(journee = unique(journee), .groups = "drop")
+
+df <- df %>% left_join(df_j, by = "code_rencontre")
+
+for (i in 1:nrow(df)){
+  if (df$score_final_r[i] > df$score_final_v[i]) {
+    df$point_r[i] <- 2
+    df$point_v[i] <- 0
+  } else if (df$score_final_r[i] == df$score_final_v[i]){
+    df$point_r[i] <- 1
+    df$point_v[i] <- 1
+  } else if (df$score_final_r[i] < df$score_final_v[i]){
+    df$point_r[i] <- 0
+    df$point_v[i] <- 2
+  }
+}
+
+pdf <- read.csv("df_pdfs.csv")
+
+pdf <- pdf %>% group_by("fichier") %>% 
+  summarize(fichier = unique(fichier))
+
+length(df$fichier)
+length(pdf$fichier)
+
+points_par_club <- df %>%
+  select(code_rencontre,journee, division, saison, club = club_recevant, points = point_r, HF) %>%
+  bind_rows(
+    df %>% select(code_rencontre,journee, division, saison, club = club_visiteur, points = point_v, HF)
+  )
+
+print(points_par_club)
+
+points_par_club %>%  group_by(club)
+
+length(which(!pdf$fichier %in% df$fichier))
