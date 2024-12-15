@@ -1,7 +1,7 @@
 library(tidyverse) # Pour la manipulation et visualisation des données
 library(stringr)   # Pour traiter les chaînes de caractères
 library(pdftools)  # Pour extraire le texte des PDF
-
+library(dplyr)
 
 
 # Charger le fichier PDF
@@ -170,13 +170,14 @@ journee <- regmatches(ligne_J, regexpr("J\\d+", ligne_J))
 
 df_final$journee <- journee
 
+
 ###### Classement par journée ######
 
-# Victoire : +2
-# Egalité : +1
-# Défaite : +0
+# Victoire : +3
+# Egalité : +2
+# Défaite : +1
 
-df <- read.csv("df_pdfs.csv")
+df <- read.csv("Data/df_pdfs.csv")
 df <- df %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
   mutate(
@@ -202,34 +203,92 @@ df_unique <- df %>%
 
 
 
-for (i in 1:nrow(df)){
-  if (df$score_final_r[i] > df$score_final_v[i]) {
-    df$point_r[i] <- 2
-    df$point_v[i] <- 0
-  } else if (df$score_final_r[i] == df$score_final_v[i]){
-    df$point_r[i] <- 1
-    df$point_v[i] <- 1
-  } else if (df$score_final_r[i] < df$score_final_v[i]){
-    df$point_r[i] <- 0
-    df$point_v[i] <- 2
+for (i in 1:nrow(df_unique)){
+  if (df_unique$score_final_r[i] > df_unique$score_final_v[i]) {
+    df_unique$point_r[i] <- 3
+    df_unique$point_v[i] <- 1
+  } else if (df_unique$score_final_r[i] == df_unique$score_final_v[i]){
+    df_unique$point_r[i] <- 2
+    df_unique$point_v[i] <- 2
+  } else if (df_unique$score_final_r[i] < df_unique$score_final_v[i]){
+    df_unique$point_r[i] <- 1
+    df_unique$point_v[i] <- 3
   }
 }
 
-pdf <- read.csv("df_pdfs.csv")
-
-pdf <- pdf %>% group_by("fichier") %>% 
-  summarize(fichier = unique(fichier))
-
-length(df$fichier)
-length(pdf$fichier)
-
-points_par_club <- df %>%
+points_par_club <- df_unique %>%
   select(code_rencontre,journee, division, saison, club = club_recevant, points = point_r, HF) %>%
   bind_rows(
-    df %>% select(code_rencontre,journee, division, saison, club = club_visiteur, points = point_v, HF)
+    df_unique %>% select(code_rencontre,journee, division, saison, club = club_visiteur, points = point_v, HF)
   )
 
 print(points_par_club)
 
-points_par_club %>%  group_by(club)
+points_par_club$journee <- as.factor(points_par_club$journee)
+points_par_club$HF <- as.factor(points_par_club$HF)
+points_par_club$division <- as.factor(points_par_club$division)
+points_par_club$saison <- as.factor(points_par_club$saison)
+points_par_club$points <- as.numeric(points_par_club$points)
 
+summary(points_par_club$journee)
+
+points_par_club <- points_par_club %>% 
+  mutate(club = case_when(
+    club == "PARIS 92" ~ "PARIS",
+    club == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
+    club == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
+    club == "LE POUZIN HB 07" ~ "LE POUZIN HB",
+    club == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
+    club == "LIMOGES HAND 87" ~ "LIMOGES HAND",
+    club == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
+    club == "NANCY HANDBALL" ~ "NANCY METROPOLE",
+    club == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
+    TRUE ~ club
+  ))
+
+result <- points_par_club %>%
+  select(club, division, saison, HF, journee, points) %>%
+  pivot_wider(names_from = journee, values_from = points) %>% 
+  arrange(HF, saison, division, club)
+
+result$match_joue <- ""
+for (i in 1:nrow(result)){
+  result$match_joue[i] <- sum(is.na(result[i,]) == FALSE) -5
+}
+
+#write.csv(result, "point_jour.csv")
+
+point_jour <- read.csv("Data/point_jour.csv", header = T, sep = ";", row.names = 1)
+
+point_jour_F <- point_jour %>% filter(HF == 'F') %>% 
+  select(-c(J27,J28,J29,J30))
+point_jour_H <- point_jour %>% filter(HF == 'H')
+
+
+# Point par jour de la compétition masculine D1 et D2, 2223 et 2324
+for (i in 1:nrow(point_jour_H)){
+  point_jour_H$J2[i] <- ifelse(is.na(point_jour_H$J1[i])==T, 
+                               point_jour_H$J2[i],
+                               point_jour_H$J2[i] + point_jour_H$J1[i])
+  for (j in 7:35){  # j = [J3:J30]
+    if (is.na(point_jour_H[i,j-1])==T){
+      point_jour_H[i,j] <- point_jour_H[i,j] + point_jour_H[i,j-2]
+    } else {
+      point_jour_H[i,j] <- point_jour_H[i,j] + point_jour_H[i,j-1]
+    }
+  }
+}
+
+# Point par jour de la compétition féminine D1 et D2, 2223 et 2324
+for (i in 1:nrow(point_jour_F)){
+  point_jour_F$J2[i] <- ifelse(is.na(point_jour_F$J1[i])==T, 
+                               point_jour_F$J2[i],
+                               point_jour_F$J2[i] + point_jour_F$J1[i])
+  for (j in 7:30){  # j = [J3:J26]
+    if (is.na(point_jour_F[i,j-1])==T){
+      point_jour_F[i,j] <- point_jour_F[i,j] + point_jour_F[i,j-2]
+    } else {
+      point_jour_F[i,j] <- point_jour_F[i,j] + point_jour_F[i,j-1]
+    }
+  }
+}
