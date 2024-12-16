@@ -38,7 +38,7 @@ data.test <- testing(data.split)
 
 
 ```{r}
-control_params <- rpart.control(maxdepth = 30, minsplit = 2, cp = 0.004)
+control_params <- rpart.control(maxdepth = 30, minsplit = 1, cp = 0.000000000000000001)
 # grid <- expand.grid(
 #   cp = c(0.001, 0.0015, 0.0023, 0.0037)
 # )
