@@ -18,7 +18,7 @@ library(tidyr)
 ```
 
 ```{r}
-df <- read.csv("df_pdfs.csv", stringsAsFactors = T)
+df <- read.csv("../Data/df_pdfs.csv", stringsAsFactors = T)
 
 colnames(df)
 ```
