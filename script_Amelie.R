@@ -256,6 +256,7 @@ for (i in 1:nrow(result)){
   result$match_joue[i] <- sum(is.na(result[i,]) == FALSE) -5
 }
 
+# ne pas exécuter car fichier compléter à la main
 #write.csv(result, "point_jour.csv")
 
 point_jour <- read.csv("Data/point_jour.csv", header = T, sep = ";", row.names = 1)
@@ -292,3 +293,6 @@ for (i in 1:nrow(point_jour_F)){
     }
   }
 }
+head(point_jour_F)
+
+
