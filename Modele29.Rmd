@@ -21,11 +21,19 @@ library(broom)
 library(RcmdrMisc)
 library(pls)
 library(BradleyTerry2)
+library(RcmdrMisc)
 ```
 
 ```{r}
 
 data <- read.table("Data/df_pdfs.csv", header = TRUE, sep = ",")
+
+data <- data %>%
+  separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
+  mutate(
+    score_final_r = as.integer(score_final_r),
+    score_final_v = as.integer(score_final_v)
+  )
 
 data_mod2 <- data %>%
   group_by(code_rencontre) %>%
@@ -177,6 +185,9 @@ ggplot(data.frame(Var = names(table(data_mod2$DM_adverse)),
 ```{r}
 mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_mod2, family = "binomial")
 summary(mod2)
+
+best_mod2 <- stepwise(mod2, direction = "backward/forward", criterion = "BIC")
+best_mod2
 ```
 
 ```{r}
@@ -185,6 +196,9 @@ data_egalite_2 <- data_mod2 %>%
 
 mod_egalite3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_egalite_2, family = "binomial")
 summary(mod_egalite3)
+
+best_mod_egalite3 <- stepwise(mod_egalite3, direction = "backward/forward", criterion = "BIC")
+best_mod_egalite3
 ```
 
 ```{r}
@@ -193,6 +207,9 @@ data_perdant_2 <- data_mod2 %>%
 
 mod_perdant3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_perdant_2, family = "binomial")
 summary(mod_perdant3)
+
+best_mod_perdant3 <- stepwise(mod_perdant3, direction = "backward/forward", criterion = "BIC")
+best_mod_perdant3
 ```
 
 ```{r}
@@ -201,3 +218,7 @@ data_gagnant_2 <- data_mod2 %>%
 
 mod_gagnant3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_gagnant_2, family = "binomial")
 summary(mod_gagnant3)
+
+best_mod_gagnant3 <- stepwise(mod_gagnant3, direction = "backward/forward", criterion = "BIC")
+best_mod_gagnant3
+```
