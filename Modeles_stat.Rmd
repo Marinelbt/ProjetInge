@@ -1,0 +1,1134 @@
+---
+title: "Modèles statistiques"
+author: "Marine"
+date: "2024-12-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Importations
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(stringr)
+library(broom)
+library(RcmdrMisc)
+library(pls)
+library(BradleyTerry2)
+```
+
+# Modèle 1 
+
+## Préparation du jeu de données 
+
+```{r}
+data <- read.table("Data/df_pdfs.csv", header = TRUE, sep = ",")
+
+classement_D1H_2223 <- read.table("Classements/classement_D1H_2223.csv", header = TRUE, sep = ",")
+classement_D1H_2324 <- read.table("Classements/classement_D1H_2324.csv", header = TRUE, sep = ",")
+classement_D1F_2223 <- read.table("Classements/classement_D1F_2223.csv", header = TRUE, sep = ",")
+classement_D1F_2324 <- read.table("Classements/classement_D1F_2324.csv", header = TRUE, sep = ",")
+classement_D2H_2223 <- read.table("Classements/classement_D2H_2223.csv", header = TRUE, sep = ",")
+classement_D2H_2324 <- read.table("Classements/classement_D2H_2324.csv", header = TRUE, sep = ",")
+classement_D2F_2223 <- read.table("Classements/classement_D2F_2223.csv", header = TRUE, sep = ",")
+classement_D2F_2324 <- read.table("Classements/classement_D2F_2324.csv", header = TRUE, sep = ",")
+
+
+classement_D1H_2223$division <- "D1"
+classement_D1H_2223$saison <- "2223"
+classement_D1H_2223$HF <- "H"
+
+classement_D1H_2324$division <- "D1"
+classement_D1H_2324$saison <- "2324"
+classement_D1H_2324$HF <- "H"
+
+classement_D1F_2223$division <- "D1"
+classement_D1F_2223$saison <- "2223"
+classement_D1F_2223$HF <- "F"
+
+classement_D1F_2324$division <- "D1"
+classement_D1F_2324$saison <- "2324"
+classement_D1F_2324$HF <- "F"
+
+classement_D2H_2223$division <- "D2"
+classement_D2H_2223$saison <- "2223"
+classement_D2H_2223$HF <- "H"
+
+classement_D2H_2324$division <- "D2"
+classement_D2H_2324$saison <- "2324"
+classement_D2H_2324$HF <- "H"
+
+classement_D2F_2223$division <- "D2"
+classement_D2F_2223$saison <- "2223"
+classement_D2F_2223$HF <- "F"
+
+classement_D2F_2324$division <- "D2"
+classement_D2F_2324$saison <- "2324"
+classement_D2F_2324$HF <- "F"
+
+classement_D1H_2122 <- read.table("Classements/classement_D1H_2122.csv", header = TRUE, sep = ",")
+classement_D1F_2122 <- read.table("Classements/classement_D1F_2122.csv", header = TRUE, sep = ",")
+classement_D2H_2122 <- read.table("Classements/classement_D2H_2122.csv", header = TRUE, sep = ",")
+classement_D2F_2122 <- read.table("Classements/classement_D2F_2122.csv", header = TRUE, sep = ",")
+
+classement_D1H_2122$division <- "D1"
+classement_D1H_2122$saison <- "2122"
+classement_D1H_2122$HF <- "H"
+
+classement_D1F_2122$division <- "D1"
+classement_D1F_2122$saison <- "2122"
+classement_D1F_2122$HF <- "F"
+
+classement_D2H_2122$division <- "D2"
+classement_D2H_2122$saison <- "2122"
+classement_D2H_2122$HF <- "H"
+
+classement_D2F_2122$division <- "D2"
+classement_D2F_2122$saison <- "2122"
+classement_D2F_2122$HF <- "F"
+
+
+classements <- bind_rows(classement_D1H_2223, 
+                         classement_D1H_2324,
+                         classement_D1F_2223,
+                         classement_D1F_2324,
+                         classement_D2H_2223,
+                         classement_D2H_2324,
+                         classement_D2F_2223,
+                         classement_D2F_2324,
+                         classement_D1H_2122,
+                         classement_D1F_2122,
+                         classement_D2H_2122,
+                         classement_D2F_2122
+                         )
+
+write.csv(classements, "classements.csv", row.names = FALSE)
+
+data <- data %>%
+  separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
+  mutate(
+    score_final_r = as.integer(score_final_r),
+    score_final_v = as.integer(score_final_v)
+  )
+
+data_mod1 <- data %>%
+  group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur, score_final_r, score_final_v, fichier) %>%
+  summarise(temps_proche_59_min = max(Temps_Sec[Temps_Sec < 59 * 60], na.rm = TRUE),
+            statut_59_min_r = first(statut_recevant[Temps_Sec == temps_proche_59_min]),
+            statut_59_min_v = -statut_59_min_r,
+            score_recevant_59_min = first(score_recevant[Temps_Sec == temps_proche_59_min]),
+            score_visiteur_59_min = first(score_visiteur[Temps_Sec == temps_proche_59_min]),
+            TM_derniere_min_r = if_else(
+              any(Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "r"),
+              1, 
+              0
+              ),
+            TM_derniere_min_v = if_else(
+              any(Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "v"),
+              1, 
+              0
+              ),
+            DM_r = if_else(
+              any(Temps_Sec >= 57 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "r"),
+              1, 
+              0
+              ),
+            DM_v = if_else(
+              any(Temps_Sec >= 57 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "v"),
+              1, 
+              0
+              )
+            ) %>%
+  filter(abs(score_recevant_59_min - score_visiteur_59_min) <= 3) %>% 
+  pivot_longer(
+    cols = c(statut_59_min_r, statut_59_min_v), 
+    names_to = "equipe", 
+    values_to = "statut_59_min"
+  ) %>%
+  mutate(
+    equipe = case_when(
+      equipe == "statut_59_min_r" ~ "R",
+      equipe == "statut_59_min_v" ~ "V"
+    ),
+    statut_final = case_when(
+      equipe == "R" & score_final_r > score_final_v ~ 1,
+      equipe == "V" & score_final_v > score_final_r ~ 1,
+      score_final_v == score_final_r ~ 0,
+      equipe == "R" & score_final_r < score_final_v ~ -1,
+      equipe == "V" & score_final_v < score_final_r ~ -1,
+    ),
+    effet_positif = case_when(
+      statut_59_min == -1 & (statut_final == 0 | statut_final == 1) ~ 1,
+      statut_59_min == 1 & statut_final == 1 ~ 1,
+      statut_59_min == 0 & statut_final == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    TM_derniere_min = case_when(
+      equipe == "R" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "V" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    TM_derniere_min_adverse = case_when(
+      equipe == "V" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "R" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    HF = case_when(
+      grepl("D1F", fichier, ignore.case = TRUE) | grepl("D2F", fichier, ignore.case = TRUE) ~ "F",
+      TRUE ~ "H"
+    ),
+     DM = case_when(
+      equipe == "R" & DM_r == 1 ~ 1,
+      equipe == "V" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    DM_adverse = case_when(
+      equipe == "V" & DM_r == 1 ~ 1,
+      equipe == "R" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    division = case_when(
+      grepl("D1", fichier, ignore.case = TRUE) ~ "D1",
+      grepl("D2", fichier, ignore.case = TRUE) ~ "D2"
+    ),
+    saison = case_when(
+      grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
+      grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+    )
+  ) %>% 
+  select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min))
+
+classements <- classements %>%
+  mutate(Club = str_to_lower(str_trim(Club))) 
+
+data_mod1 <- data_mod1 %>%
+  mutate(club_ref = case_when(equipe == "R" ~ club_recevant, equipe == "V" ~ club_visiteur)) %>%
+  mutate(club_ref = str_to_lower(str_trim(club_ref))) %>% 
+  mutate(club_opp = case_when(equipe == "R" ~ club_visiteur, equipe == "V" ~ club_recevant)) %>%
+  mutate(club_opp = str_to_lower(str_trim(club_opp))) %>%
+  left_join(
+    classements[, -c(1,4:10)],
+    by = c(
+      "division" = "division",
+      "saison" = "saison",
+      "HF" = "HF",
+      "club_ref" = "Club"
+    )
+  ) %>%
+  mutate(points_classement = Points) %>%
+  select(-c(Points)) %>%
+  left_join(
+    classements[, -c(1,4:10)],
+    by = c(
+      "division" = "division",
+      "saison" = "saison",
+      "HF" = "HF",
+      "club_opp" = "Club"
+    )
+  ) %>%
+  mutate(points_opp = Points) %>%
+  select(-c(Points)) 
+
+clubs <- data.frame(feuille_match = c(unique(data_mod1$club_ref[is.na(data_mod1$points_classement)])),
+                    classement = c("paris 92",
+                                   "st amand handball -  porte du hainaut",
+                                   "handball clermont auvergne metropole 63",
+                                   "nancy handball",
+                                   "limoges hand 87",
+                                   "js cherbourgeoise  manche hb",
+                                   "provence aix universite club handball",
+                                   "bouillargues handball nimes metropole",
+                                   "le pouzin hb 07"
+                                  ))
+
+data_mod1 <- data_mod1 %>%
+  left_join(
+    clubs %>% select(feuille_match, classement),
+    by = c("club_ref" = "feuille_match")
+  ) %>%
+  mutate(
+    club_ref = if_else(!is.na(classement), classement, club_ref)
+  ) %>%
+  select(-classement) 
+
+data_mod1 <- data_mod1 %>%
+  left_join(
+    classements[, -c(1,4:10)],
+    by = c(
+      "division" = "division",
+      "saison" = "saison",
+      "HF" = "HF",
+      "club_ref" = "Club"
+    )
+  ) %>%
+  mutate(points_classement = Points) %>%
+  select(-Points)
+
+data_mod1 <- data_mod1 %>%
+  left_join(
+    clubs %>% select(feuille_match, classement),
+    by = c("club_opp" = "feuille_match")
+  ) %>%
+  mutate(
+    club_opp = if_else(!is.na(classement), classement, club_opp)
+  ) %>%
+  select(-classement) 
+
+data_mod1 <- data_mod1 %>%
+  left_join(
+    classements[, -c(1,4:10)],
+    by = c(
+      "division" = "division",
+      "saison" = "saison",
+      "HF" = "HF",
+      "club_opp" = "Club"
+    )
+  ) %>%
+  mutate(points_opp = Points) %>%
+  select(-c(Points)) %>% 
+  mutate(diff_classement = points_opp - points_classement)
+
+# One ne garde que l'équipe recevante 
+data_mod1 <- data_mod1 %>%
+  filter(equipe == "R") %>% 
+  filter(statut_59_min != 0 | statut_final != 0)
+  
+write.csv(data_mod1, "data_mod1.csv", row.names = FALSE)
+
+```
+
+## distribution des variables
+
+```{r}
+
+# Graphique pour effet_positif
+ggplot(data.frame(Var = names(table(data_mod1$effet_positif)), 
+                  Freq = as.numeric(table(data_mod1$effet_positif))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de effet_positif", x = "Effet positif", y = "Fréquence") +
+  scale_fill_manual(values = c("red", "green3")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour TM_derniere_min
+ggplot(data.frame(Var = names(table(data_mod1$TM_derniere_min)), 
+                  Freq = as.numeric(table(data_mod1$TM_derniere_min))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de TM_derniere_min", x = "Temps mort à la dernière minute", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour TM_derniere_min_adverse
+ggplot(data.frame(Var = names(table(data_mod1$TM_derniere_min_adverse)), 
+                  Freq = as.numeric(table(data_mod1$TM_derniere_min_adverse))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de TM_derniere_min_adverse", x = "Temps mort à la dernière minute de l'adversaire", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour HF
+ggplot(data.frame(Var = names(table(data_mod1$HF)), 
+                  Freq = as.numeric(table(data_mod1$HF))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de HF", x = "Hommes ou femmes", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour DM_adverse
+ggplot(data.frame(Var = names(table(data_mod1$DM_adverse)), 
+                  Freq = as.numeric(table(data_mod1$DM_adverse))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de DM_adverse", x = "2min de l'adversaire", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+hist(data_mod1$diff_classement)
+
+```
+
+
+## Modèle 1
+
+```{r}
+
+data_mod1$effet_positif <- as.factor(data_mod1$effet_positif)
+data_mod1$TM_derniere_min <- as.factor(data_mod1$TM_derniere_min)
+data_mod1$TM_derniere_min_adverse <- as.factor(data_mod1$TM_derniere_min_adverse)
+data_mod1$HF <- as.factor(data_mod1$HF)
+data_mod1$equipe <- as.factor(data_mod1$equipe)
+data_mod1$DM_adverse <- as.factor(data_mod1$DM_adverse)
+data_mod1$DM <- as.factor(data_mod1$DM)
+data_mod1$statut_59_min <- as.factor(data_mod1$statut_59_min)
+
+mod0 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_mod1, family = "binomial")
+summary(mod0)
+```
+- Prendre un temps-mort à la dernière minute multiplie les odds de "remonter le match" par exp(0.66) ≈ 1,93 donc cela augmente les chances de "remonter le match"
+- Un temps mort de l'equipe adverse à la dernière minute multiplie les odds de "remonter le match" par exp(-0.86) ≈ 0,42 donc cela diminue les chances de "remonter le match"
+- Être une équipe masculine multiplie les odds de "remonter le match" par exp(-0.45) ≈ 0,64 donc cela diminue les chances de "remonter le match"
+- Être l'équipe visiteuse multiplie les odds de "remonter le match" par exp(-0.38) ≈ 0,68 donc cela diminue les chances de "remonter le match"
+- Chaque point de différence dans le classement multiplie les odds de "remonter le match" par exp(-0.05) ≈ 0,95. Donc une plus grande différence de classement, quelle que soit sa direction (positif ou négatif), réduit les chances de "remonter un match".
+Cela reflète un désavantage structurel des équipes en fonction de leur classement relatif :
+Si l'équipe analysée est mieux classée, son besoin ou sa probabilité de "remontée" est moindre.
+Si elle est moins bien classée, l'écart de niveau complique davantage une remontée.
+
+
+```{r}
+contrasts(data_mod1$statut_59_min) <- contr.sum(levels(data_mod1$statut_59_min))
+
+mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + statut_59_min, data = data_mod1, family = "binomial")
+summary(mod1)
+
+mod1_summary <- tidy(mod1)
+
+#graphique des coefficients
+ggplot(mod1_summary, aes(x = estimate, y = term, color = p.value < 0.05)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = estimate - std.error, xmax = estimate + std.error)) +
+  # Ajouter une ligne verticale à x = 0
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey") +
+  labs(title = "Coefficients de la régression logistique",
+       x = "Estimation des Coefficients (log-odds)",
+       y = "Variables") +
+  theme_minimal() +
+  scale_color_manual(values = c("red3", "green4")) + 
+  theme(axis.text.y = element_text(size = 12)) 
+```
+
+- Prendre un temps-mort à la dernière minute multiplie les odds de "remonter le match" par exp(0.54) ≈ 1,72 donc cela augmente les chances de "remonter le match"
+- Être une équipe masculine multiplie les odds de "remonter le match" par exp(-0.72) ≈ 0,49 donc cela diminue les chances de "remonter le match"
+- Chaque point de différence dans le classement multiplie les odds de "remonter le match" par exp(-0.03) ≈ 0,97. Donc une plus grande différence de classement, quelle que soit sa direction (positif ou négatif), réduit les chances de "remonter un match".
+Cela reflète un désavantage structurel des équipes en fonction de leur classement relatif :
+Si l'équipe analysée est mieux classée, son besoin ou sa probabilité de "remontée" est moindre.
+Si elle est moins bien classée, l'écart de niveau complique davantage une remontée.
+- Un 2min de l'équipe adverse dans les 3 dernières minutes du match multiplie les odds de "remonter le match" par exp(0.46) ≈ 1,58 donc cela augmente les chances de "remonter le match"
+- Un 2min de sa propre équipe dans les 3 dernières minutes du match multiplie les odds de "remonter le match" par exp(-0.78) ≈ 0,46 donc cela diminue les chances de "remonter le match"
+- Etre en train de perdre à 59 min multiplie les odds de "remonter le match" par exp(-1.43) ≈ 0,24 donc cela diminue les chances de "remonter le match"
+- Etre à égalité à 59 min multiplie les odds de "remonter le match" par exp(-0.90) ≈ 0,41 donc cela diminue les chances de "remonter le match"
+- Etre en tarin de gagner à 59 min multiplie les odds de "remonter le match" par exp(2.33) ≈ 10,3 donc cela augmente les chances de gagner le match 
+
+## Un modèle pour chaque statut à 59 min
+
+```{r}
+data_egalite <- data_mod1 %>% 
+  filter(statut_59_min == "0")
+
+mod_egalite1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + diff_classement + DM_adverse + DM, data = data_egalite, family = "binomial")
+summary(mod_egalite1)
+
+mod_egalite2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_egalite, family = "binomial")
+summary(mod_egalite2)
+
+
+```
+
+```{r}
+data_perdant <- data_mod1 %>% 
+  filter(statut_59_min == "-1")
+
+mod_perdant1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + diff_classement + DM_adverse + DM, data = data_perdant, family = "binomial")
+summary(mod_perdant1)
+
+mod_perdant2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_perdant, family = "binomial")
+summary(mod_perdant2)
+```
+
+```{r}
+data_gagnant <- data_mod1 %>% 
+  filter(statut_59_min == "1")
+
+mod_gagnant1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + diff_classement + DM_adverse + DM, data = data_gagnant, family = "binomial")
+summary(mod_gagnant1)
+
+mod_gagnant2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_gagnant, family = "binomial")
+summary(mod_gagnant2)
+```
+## Comparaison avec la 29ème minute 
+
+```{r}
+
+data_mod2 <- data %>%
+  group_by(code_rencontre) %>%
+  filter(any(Temps_Sec < 29 * 60)) %>%
+  ungroup() %>% 
+  group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur, score_final_r, score_final_v, fichier) %>%
+  summarise(temps_proche_29_min = max(Temps_Sec[Temps_Sec < 29 * 60], na.rm = TRUE),
+            statut_29_min_r = first(statut_recevant[Temps_Sec == temps_proche_29_min]),
+            statut_29_min_v = -statut_29_min_r,
+            score_recevant_29_min = first(score_recevant[Temps_Sec == temps_proche_29_min]),
+            score_visiteur_29_min = first(score_visiteur[Temps_Sec == temps_proche_29_min]),
+            temps_proche_30_min = max(Temps_Sec[Temps_Sec < 30 * 60], na.rm = TRUE),
+            statut_30_min_r = first(statut_recevant[Temps_Sec == temps_proche_30_min]),
+            statut_30_min_v = -statut_30_min_r,
+            score_recevant_30_min = first(score_recevant[Temps_Sec == temps_proche_30_min]),
+            score_visiteur_30_min = first(score_visiteur[Temps_Sec == temps_proche_30_min]),
+            TM_derniere_min_r = if_else(
+              any(Temps_Sec >= 29 * 60 & Temps_Sec <= 30 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "r"),
+              1, 
+              0
+              ),
+            TM_derniere_min_v = if_else(
+              any(Temps_Sec >= 29 * 60 & Temps_Sec <= 30 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "v"),
+              1, 
+              0
+              ),
+            DM_r = if_else(
+              any(Temps_Sec >= 27 * 60 & Temps_Sec <= 30 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "r"),
+              1, 
+              0
+              ),
+            DM_v = if_else(
+              any(Temps_Sec >= 27 * 60 & Temps_Sec <= 30 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "v"),
+              1, 
+              0
+              )
+            ) %>%
+  filter(abs(score_recevant_29_min - score_visiteur_29_min) <= 3) %>% 
+  pivot_longer(
+    cols = c(statut_29_min_r, statut_29_min_v), 
+    names_to = "equipe", 
+    values_to = "statut_29_min"
+  ) %>%
+  mutate(
+    equipe = case_when(
+      equipe == "statut_29_min_r" ~ "R",
+      equipe == "statut_29_min_v" ~ "V",
+    ),
+    statut_30_min = case_when(
+      equipe == "R" ~ statut_30_min_r,
+      equipe == "V" ~ statut_30_min_v,
+    ),
+    statut_final = case_when(
+      equipe == "R" & score_final_r > score_final_v ~ 1,
+      equipe == "V" & score_final_v > score_final_r ~ 1,
+      score_final_v == score_final_r ~ 0,
+      equipe == "R" & score_final_r < score_final_v ~ -1,
+      equipe == "V" & score_final_v < score_final_r ~ -1,
+    ),
+    effet_positif = case_when(
+      statut_29_min == -1 & (statut_30_min == 0 | statut_30_min == 1) ~ 1,
+      statut_29_min == 1 & statut_30_min == 1 ~ 1,
+      statut_29_min == 0 & statut_30_min == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    TM_derniere_min = case_when(
+      equipe == "R" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "V" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    TM_derniere_min_adverse = case_when(
+      equipe == "V" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "R" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    HF = case_when(
+      grepl("D1F", fichier, ignore.case = TRUE) | grepl("D2F", fichier, ignore.case = TRUE) ~ "F",
+      TRUE ~ "H"
+    ),
+     DM = case_when(
+      equipe == "R" & DM_r == 1 ~ 1,
+      equipe == "V" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    DM_adverse = case_when(
+      equipe == "V" & DM_r == 1 ~ 1,
+      equipe == "R" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    division = case_when(
+      grepl("D1", fichier, ignore.case = TRUE) ~ "D1",
+      grepl("D2", fichier, ignore.case = TRUE) ~ "D2"
+    ),
+    saison = case_when(
+      grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
+      grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+    )
+  ) %>% 
+  select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_29_min, statut_30_min_r, statut_30_min_v))
+
+data_mod2 <- data_mod2 %>%
+  filter(equipe == "R") %>% 
+  filter(statut_29_min != 0 | statut_30_min != 0)
+
+```
+
+```{r}
+# Graphique pour effet_positif
+ggplot(data.frame(Var = names(table(data_mod2$effet_positif)), 
+                  Freq = as.numeric(table(data_mod2$effet_positif))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de effet_positif", x = "Effet positif", y = "Fréquence") +
+  scale_fill_manual(values = c("red", "green3")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour TM_derniere_min
+ggplot(data.frame(Var = names(table(data_mod2$TM_derniere_min)), 
+                  Freq = as.numeric(table(data_mod2$TM_derniere_min))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de TM_derniere_min", x = "Temps mort à la dernière minute", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour HF
+ggplot(data.frame(Var = names(table(data_mod2$HF)), 
+                  Freq = as.numeric(table(data_mod2$HF))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de HF", x = "Hommes ou femmes", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour DM_adverse
+ggplot(data.frame(Var = names(table(data_mod2$DM_adverse)), 
+                  Freq = as.numeric(table(data_mod2$DM_adverse))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de DM_adverse", x = "2min de l'adversaire", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+```{r}
+mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_mod2, family = "binomial")
+summary(mod2)
+```
+
+```{r}
+data_egalite_2 <- data_mod2 %>% 
+  filter(statut_29_min == "0")
+
+mod_egalite3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_egalite_2, family = "binomial")
+summary(mod_egalite3)
+```
+
+```{r}
+data_perdant_2 <- data_mod2 %>% 
+  filter(statut_29_min == "-1")
+
+mod_perdant3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_perdant_2, family = "binomial")
+summary(mod_perdant3)
+```
+
+```{r}
+data_gagnant_2 <- data_mod2 %>% 
+  filter(statut_29_min == "1")
+
+mod_gagnant3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_gagnant_2, family = "binomial")
+summary(mod_gagnant3)
+```
+
+## Comparaison avec la 15ème minute 
+
+```{r}
+data_mod3 <- data %>%
+  group_by(code_rencontre) %>%
+  filter(any(Temps_Sec < 15 * 60)) %>%
+  ungroup() %>% 
+  group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur, score_final_r, score_final_v, fichier) %>%
+  summarise(temps_proche_15_min = max(Temps_Sec[Temps_Sec < 15 * 60], na.rm = TRUE),
+            statut_15_min_r = first(statut_recevant[Temps_Sec == temps_proche_15_min]),
+            statut_15_min_v = -statut_15_min_r,
+            score_recevant_15_min = first(score_recevant[Temps_Sec == temps_proche_15_min]),
+            score_visiteur_15_min = first(score_visiteur[Temps_Sec == temps_proche_15_min]),
+            temps_proche_16_min = max(Temps_Sec[Temps_Sec < 16 * 60], na.rm = TRUE),
+            statut_16_min_r = first(statut_recevant[Temps_Sec == temps_proche_16_min]),
+            statut_16_min_v = -statut_16_min_r,
+            score_recevant_16_min = first(score_recevant[Temps_Sec == temps_proche_16_min]),
+            score_visiteur_16_min = first(score_visiteur[Temps_Sec == temps_proche_16_min]),
+            TM_derniere_min_r = if_else(
+              any(Temps_Sec >= 15 * 60 & Temps_Sec <= 16 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "r"),
+              1, 
+              0
+              ),
+            TM_derniere_min_v = if_else(
+              any(Temps_Sec >= 15 * 60 & Temps_Sec <= 16 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "v"),
+              1, 
+              0
+              ),
+            DM_r = if_else(
+              any(Temps_Sec >= 13 * 60 & Temps_Sec <= 16 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "r"),
+              1, 
+              0
+              ),
+            DM_v = if_else(
+              any(Temps_Sec >= 13 * 60 & Temps_Sec <= 16 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "v"),
+              1, 
+              0
+              )
+            ) %>%
+  filter(abs(score_recevant_15_min - score_visiteur_15_min) <= 3) %>% 
+  pivot_longer(
+    cols = c(statut_15_min_r, statut_15_min_v), 
+    names_to = "equipe", 
+    values_to = "statut_15_min"
+  ) %>%
+  mutate(
+    equipe = case_when(
+      equipe == "statut_15_min_r" ~ "R",
+      equipe == "statut_15_min_v" ~ "V",
+    ),
+    statut_16_min = case_when(
+      equipe == "R" ~ statut_16_min_r,
+      equipe == "V" ~ statut_16_min_v,
+    ),
+    statut_final = case_when(
+      equipe == "R" & score_final_r > score_final_v ~ 1,
+      equipe == "V" & score_final_v > score_final_r ~ 1,
+      score_final_v == score_final_r ~ 0,
+      equipe == "R" & score_final_r < score_final_v ~ -1,
+      equipe == "V" & score_final_v < score_final_r ~ -1,
+    ),
+    effet_positif = case_when(
+      statut_15_min == -1 & (statut_16_min == 0 | statut_16_min == 1) ~ 1,
+      statut_15_min == 1 & statut_16_min == 1 ~ 1,
+      statut_15_min == 0 & statut_16_min == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    TM_derniere_min = case_when(
+      equipe == "R" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "V" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    TM_derniere_min_adverse = case_when(
+      equipe == "V" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "R" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    HF = case_when(
+      grepl("D1F", fichier, ignore.case = TRUE) | grepl("D2F", fichier, ignore.case = TRUE) ~ "F",
+      TRUE ~ "H"
+    ),
+     DM = case_when(
+      equipe == "R" & DM_r == 1 ~ 1,
+      equipe == "V" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    DM_adverse = case_when(
+      equipe == "V" & DM_r == 1 ~ 1,
+      equipe == "R" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    division = case_when(
+      grepl("D1", fichier, ignore.case = TRUE) ~ "D1",
+      grepl("D2", fichier, ignore.case = TRUE) ~ "D2"
+    ),
+    saison = case_when(
+      grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
+      grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+    )
+  ) %>% 
+  select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_15_min, statut_16_min_r, statut_16_min_v))
+
+data_mod3 <- data_mod3 %>%
+  filter(equipe == "R") %>% 
+  filter(statut_15_min != 0 | statut_16_min != 0)
+
+
+```
+
+```{r}
+# Graphique pour effet_positif
+ggplot(data.frame(Var = names(table(data_mod3$effet_positif)), 
+                  Freq = as.numeric(table(data_mod3$effet_positif))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de effet_positif", x = "Effet positif", y = "Fréquence") +
+  scale_fill_manual(values = c("red", "green3")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour TM_derniere_min
+ggplot(data.frame(Var = names(table(data_mod3$TM_derniere_min)), 
+                  Freq = as.numeric(table(data_mod3$TM_derniere_min))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de TM_derniere_min", x = "Temps mort à la dernière minute", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+# Graphique pour HF
+ggplot(data.frame(Var = names(table(data_mod3$HF)), 
+                  Freq = as.numeric(table(data_mod3$HF))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de HF", x = "Hommes ou femmes", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour DM_adverse
+ggplot(data.frame(Var = names(table(data_mod3$DM_adverse)), 
+                  Freq = as.numeric(table(data_mod3$DM_adverse))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de DM_adverse", x = "2min de l'adversaire", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+```{r}
+mod3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_mod3, family = "binomial")
+summary(mod3)
+```
+
+```{r}
+data_egalite_3 <- data_mod3 %>% 
+  filter(statut_15_min == "0")
+
+mod_egalite4 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_egalite_3, family = "binomial")
+summary(mod_egalite4)
+```
+
+```{r}
+data_perdant_3 <- data_mod3 %>% 
+  filter(statut_15_min == "-1")
+
+mod_perdant4 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_perdant_3, family = "binomial")
+summary(mod_perdant4)
+```
+
+```{r}
+data_gagnant_3 <- data_mod3 %>% 
+  filter(statut_15_min == "1")
+
+mod_gagnant4 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_gagnant_3, family = "binomial")
+summary(mod_gagnant4)
+```
+## Comparaison avec la 45ème minute 
+
+```{r}
+data_mod4 <- data %>%
+  group_by(code_rencontre) %>%
+  filter(any(Temps_Sec < 45 * 60)) %>%
+  ungroup() %>% 
+  group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur, score_final_r, score_final_v, fichier) %>%
+  summarise(temps_proche_45_min = max(Temps_Sec[Temps_Sec < 45 * 60], na.rm = TRUE),
+            statut_45_min_r = first(statut_recevant[Temps_Sec == temps_proche_45_min]),
+            statut_45_min_v = -statut_45_min_r,
+            score_recevant_45_min = first(score_recevant[Temps_Sec == temps_proche_45_min]),
+            score_visiteur_45_min = first(score_visiteur[Temps_Sec == temps_proche_45_min]),
+            temps_proche_46_min = max(Temps_Sec[Temps_Sec < 46 * 60], na.rm = TRUE),
+            statut_46_min_r = first(statut_recevant[Temps_Sec == temps_proche_46_min]),
+            statut_46_min_v = -statut_46_min_r,
+            score_recevant_46_min = first(score_recevant[Temps_Sec == temps_proche_46_min]),
+            score_visiteur_46_min = first(score_visiteur[Temps_Sec == temps_proche_46_min]),
+            TM_derniere_min_r = if_else(
+              any(Temps_Sec >= 45 * 60 & Temps_Sec <= 46 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "r"),
+              1, 
+              0
+              ),
+            TM_derniere_min_v = if_else(
+              any(Temps_Sec >= 45 * 60 & Temps_Sec <= 46 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "v"),
+              1, 
+              0
+              ),
+            DM_r = if_else(
+              any(Temps_Sec >= 43 * 60 & Temps_Sec <= 46 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "r"),
+              1, 
+              0
+              ),
+            DM_v = if_else(
+              any(Temps_Sec >= 43 * 60 & Temps_Sec <= 46 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "v"),
+              1, 
+              0
+              )
+            ) %>%
+  filter(abs(score_recevant_45_min - score_visiteur_45_min) <= 3) %>% 
+  pivot_longer(
+    cols = c(statut_45_min_r, statut_45_min_v), 
+    names_to = "equipe", 
+    values_to = "statut_45_min"
+  ) %>%
+  mutate(
+    equipe = case_when(
+      equipe == "statut_45_min_r" ~ "R",
+      equipe == "statut_45_min_v" ~ "V",
+    ),
+    statut_46_min = case_when(
+      equipe == "R" ~ statut_46_min_r,
+      equipe == "V" ~ statut_46_min_v,
+    ),
+    statut_final = case_when(
+      equipe == "R" & score_final_r > score_final_v ~ 1,
+      equipe == "V" & score_final_v > score_final_r ~ 1,
+      score_final_v == score_final_r ~ 0,
+      equipe == "R" & score_final_r < score_final_v ~ -1,
+      equipe == "V" & score_final_v < score_final_r ~ -1,
+    ),
+    effet_positif = case_when(
+      statut_45_min == -1 & (statut_46_min == 0 | statut_46_min == 1) ~ 1,
+      statut_45_min == 1 & statut_46_min == 1 ~ 1,
+      statut_45_min == 0 & statut_46_min == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    TM_derniere_min = case_when(
+      equipe == "R" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "V" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    TM_derniere_min_adverse = case_when(
+      equipe == "V" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "R" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    HF = case_when(
+      grepl("D1F", fichier, ignore.case = TRUE) | grepl("D2F", fichier, ignore.case = TRUE) ~ "F",
+      TRUE ~ "H"
+    ),
+     DM = case_when(
+      equipe == "R" & DM_r == 1 ~ 1,
+      equipe == "V" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    DM_adverse = case_when(
+      equipe == "V" & DM_r == 1 ~ 1,
+      equipe == "R" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    division = case_when(
+      grepl("D1", fichier, ignore.case = TRUE) ~ "D1",
+      grepl("D2", fichier, ignore.case = TRUE) ~ "D2"
+    ),
+    saison = case_when(
+      grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
+      grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+    )
+  ) %>% 
+  select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_45_min, statut_46_min_r, statut_46_min_v))
+
+data_mod4 <- data_mod4 %>%
+  filter(equipe == "R") %>% 
+  filter(statut_45_min != 0 | statut_46_min != 0)
+
+
+```
+
+```{r}
+# Graphique pour effet_positif
+ggplot(data.frame(Var = names(table(data_mod4$effet_positif)), 
+                  Freq = as.numeric(table(data_mod4$effet_positif))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de effet_positif", x = "Effet positif", y = "Fréquence") +
+  scale_fill_manual(values = c("red", "green3")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour TM_derniere_min
+ggplot(data.frame(Var = names(table(data_mod4$TM_derniere_min)), 
+                  Freq = as.numeric(table(data_mod4$TM_derniere_min))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de TM_derniere_min", x = "Temps mort à la dernière minute", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour HF
+ggplot(data.frame(Var = names(table(data_mod4$HF)), 
+                  Freq = as.numeric(table(data_mod4$HF))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de HF", x = "Hommes ou femmes", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour DM_adverse
+ggplot(data.frame(Var = names(table(data_mod4$DM_adverse)), 
+                  Freq = as.numeric(table(data_mod4$DM_adverse))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de DM_adverse", x = "2min de l'adversaire", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+```{r}
+mod4 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_mod4, family = "binomial")
+summary(mod4)
+```
+
+```{r}
+data_egalite_4 <- data_mod4 %>% 
+  filter(statut_45_min == "0")
+
+mod_egalite5 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_egalite_4, family = "binomial")
+summary(mod_egalite5)
+```
+```{r}
+data_perdant_4 <- data_mod4 %>% 
+  filter(statut_45_min == "-1")
+
+mod_perdant5 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_egalite_4, family = "binomial")
+summary(mod_perdant5)
+```
+
+```{r}
+data_gagnant_4 <- data_mod4 %>% 
+  filter(statut_45_min == "1")
+
+mod_gagnant5 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_egalite_4, family = "binomial")
+summary(mod_gagnant5)
+```
+
+
+# Modèle de Bradley-Terry généralisé 
+
+```{r}
+data_bradley_terry <- data %>%
+  group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur, score_final_r, score_final_v, fichier) %>%
+  summarise(
+    temps_proche_59_min = max(Temps_Sec[Temps_Sec < 59 * 60], na.rm = TRUE),
+    statut_59_min_r = first(statut_recevant[Temps_Sec == temps_proche_59_min]),
+    statut_59_min_v = -statut_59_min_r,
+    score_recevant_59_min = first(score_recevant[Temps_Sec == temps_proche_59_min]),
+    score_visiteur_59_min = first(score_visiteur[Temps_Sec == temps_proche_59_min]),
+    TM_derniere_min_r = if_else(
+      any(Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "r"),
+      1, 
+      0
+    ),
+    TM_derniere_min_v = if_else(
+      any(Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "v"),
+      1, 
+      0
+    ),
+    DM_r = if_else(
+      any(Temps_Sec >= 57 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "r"),
+      1, 
+      0
+    ),
+    DM_v = if_else(
+      any(Temps_Sec >= 57 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "v"),
+      1, 
+      0
+    )
+  ) %>%
+  filter(abs(score_recevant_59_min - score_visiteur_59_min) <= 3) %>% 
+  pivot_longer(
+    cols = c(statut_59_min_r, statut_59_min_v), 
+    names_to = "equipe", 
+    values_to = "statut_59_min"
+  ) %>%
+  mutate(
+    equipe = case_when(
+      equipe == "statut_59_min_r" ~ "R",  # Recevant
+      equipe == "statut_59_min_v" ~ "V"   # Visiteur
+    ),
+    statut_final = case_when(
+      equipe == "R" & score_final_r > score_final_v ~ 1,
+      equipe == "V" & score_final_v > score_final_r ~ 1,
+      score_final_v == score_final_r ~ 0,
+      equipe == "R" & score_final_r < score_final_v ~ -1,
+      equipe == "V" & score_final_v < score_final_r ~ -1
+    ),
+    effet_positif = case_when(
+      statut_59_min == -1 & (statut_final == 0 | statut_final == 1) ~ 1,
+      statut_59_min == 1 & statut_final == 1 ~ 1,
+      statut_59_min == 0 & statut_final == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    # Attribution des valeurs de TM et DM pour chaque équipe
+    TM_derniere_min = case_when(
+      equipe == "R" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "V" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    TM_derniere_min_adverse = case_when(
+      equipe == "V" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "R" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    HF = case_when(
+      grepl("D1F", fichier, ignore.case = TRUE) | grepl("D2F", fichier, ignore.case = TRUE) ~ "F",
+      TRUE ~ "H"
+    ),
+    DM = case_when(
+      equipe == "R" & DM_r == 1 ~ 1,
+      equipe == "V" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    DM_adverse = case_when(
+      equipe == "V" & DM_r == 1 ~ 1,
+      equipe == "R" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    division = case_when(
+      grepl("D1", fichier, ignore.case = TRUE) ~ "D1",
+      grepl("D2", fichier, ignore.case = TRUE) ~ "D2"
+    ),
+    saison = case_when(
+      grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
+      grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+    )
+  ) %>% 
+  select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min)) %>%
+  mutate(
+    victoires_r = if_else(score_final_r > score_final_v, 1, 0),
+    victoires_v = if_else(score_final_v > score_final_r, 1, 0)
+  )
+
+all_teams <- unique(c(data_bradley_terry$club_recevant, data_bradley_terry$club_visiteur))
+data_bradley_terry$club_recevant <- factor(data_bradley_terry$club_recevant, levels = all_teams)
+data_bradley_terry$club_visiteur <- factor(data_bradley_terry$club_visiteur, levels = all_teams)
+
+bt_model <- BTm(
+  outcome = cbind(victoires_r, victoires_v),
+  player1 = club_recevant,
+  player2 = club_visiteur,
+  formula = ~ TM_derniere_min + DM_adverse,
+  data = data_bradley_terry,
+)
+
+summary(bt_model)
+
+```
+
+
+
+
+```{r}
+# segments <- cvsegments(k = 10, N = nrow(data_mod1))
+# cvpred <- rep(0, nrow(data_mod1))
+# for (k in 1:10){
+#   data_train <- data_mod1[-segments[[k]], ]
+#   data_test <- data_mod1[segments[[k]], ]
+#   mod <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + equipe + diff_classement + DM_adverse + DM + statut_59_min, data = data_train, family = "binomial")
+#   mod <- step(mod, direction = "both", trace = 0, k = log(nrow(data_train)))
+#     probs <- predict(mod, newdata = data_test, type = "response")
+#   cvpred[segments[[k]]] <- ifelse(probs > 0.5, 1, 0)
+# }
+# 
+# # Calcul de l'accuracy
+# accuracy <- mean(cvpred == data_mod1$effet_positif)
+# accuracy
+
+```
+
+
