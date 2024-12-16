@@ -19,7 +19,7 @@ library(caret)
 
 ```{r}
 set.seed(123)
-data <- read.csv("data_mod1.csv")
+data <- read.csv("../Data/data_mod1.csv")
 
 data$effet_positif <- as.factor(data$effet_positif)
 data$TM_derniere_min <- as.factor(data$TM_derniere_min)
@@ -30,7 +30,7 @@ data$DM_adverse <- as.factor(data$DM_adverse)
 data$DM <- as.factor(data$DM)
 data$statut_59_min <- as.factor(data$statut_59_min)
 
-data.split <- initial_split(data, prop = 3/4)
+data.split <- initial_split(data, prop = 0.80)
 data.train <- training(data.split)
 data.test <- testing(data.split)
 ```
@@ -38,7 +38,7 @@ data.test <- testing(data.split)
 
 
 ```{r}
-control_params <- rpart.control(maxdepth = 30, minsplit = 2, cp = 0.0040)
+control_params <- rpart.control(maxdepth = 30, minsplit = 2, cp = 0.004)
 # grid <- expand.grid(
 #   cp = c(0.001, 0.0015, 0.0023, 0.0037)
 # )
