@@ -347,6 +347,16 @@ ggplot(data.frame(Var = names(table(data_mod1$HF)),
   theme_minimal() +
   theme(legend.position = "none")
 
+# Graphique pour DM
+ggplot(data.frame(Var = names(table(data_mod1$DM)), 
+                  Freq = as.numeric(table(data_mod1$DM))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de DM", x = "2min", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
 # Graphique pour DM_adverse
 ggplot(data.frame(Var = names(table(data_mod1$DM_adverse)), 
                   Freq = as.numeric(table(data_mod1$DM_adverse))), aes(x = Var, y = Freq, fill = Var)) +
