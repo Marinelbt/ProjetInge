@@ -20,7 +20,7 @@ library(stringr)
 library(broom)
 library(RcmdrMisc)
 library(pls)
-library(BradleyTerry2)
+#library(BradleyTerry2)
 library(RcmdrMisc)
 ```
 
@@ -141,6 +141,20 @@ data_mod2 <- data_mod2 %>%
 ```
 
 ```{r}
+data_mod2$equipe <- factor(data_mod2$equipe)
+data_mod2$statut_29_min <- factor(data_mod2$statut_29_min)
+data_mod2$statut_30_min <- factor(data_mod2$statut_30_min)
+data_mod2$statut_final <- factor(data_mod2$statut_final)
+data_mod2$effet_positif <- factor(data_mod2$effet_positif)
+data_mod2$TM_derniere_min <- factor(data_mod2$TM_derniere_min)
+data_mod2$TM_derniere_min_adverse <- factor(data_mod2$TM_derniere_min_adverse)
+data_mod2$HF <- factor(data_mod2$HF)
+data_mod2$DM <- factor(data_mod2$DM)
+data_mod2$DM_adverse <- factor(data_mod2$DM_adverse)
+```
+
+
+```{r}
 # Graphique pour effet_positif
 ggplot(data.frame(Var = names(table(data_mod2$effet_positif)), 
                   Freq = as.numeric(table(data_mod2$effet_positif))), aes(x = Var, y = Freq, fill = Var)) +
@@ -186,7 +200,7 @@ ggplot(data.frame(Var = names(table(data_mod2$DM_adverse)),
 mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_mod2, family = "binomial")
 summary(mod2)
 
-best_mod2 <- stepwise(mod2, direction = "backward/forward", criterion = "BIC")
+best_mod2 <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
 best_mod2
 ```
 
@@ -197,7 +211,7 @@ data_egalite_2 <- data_mod2 %>%
 mod_egalite3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_egalite_2, family = "binomial")
 summary(mod_egalite3)
 
-best_mod_egalite3 <- stepwise(mod_egalite3, direction = "backward/forward", criterion = "BIC")
+best_mod_egalite3 <- stepwise(mod_egalite3, direction = "backward/forward", criterion = "AIC")
 best_mod_egalite3
 ```
 
@@ -208,7 +222,7 @@ data_perdant_2 <- data_mod2 %>%
 mod_perdant3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_perdant_2, family = "binomial")
 summary(mod_perdant3)
 
-best_mod_perdant3 <- stepwise(mod_perdant3, direction = "backward/forward", criterion = "BIC")
+best_mod_perdant3 <- stepwise(mod_perdant3, direction = "backward/forward", criterion = "AIC")
 best_mod_perdant3
 ```
 
@@ -219,6 +233,6 @@ data_gagnant_2 <- data_mod2 %>%
 mod_gagnant3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_gagnant_2, family = "binomial")
 summary(mod_gagnant3)
 
-best_mod_gagnant3 <- stepwise(mod_gagnant3, direction = "backward/forward", criterion = "BIC")
+best_mod_gagnant3 <- stepwise(mod_gagnant3, direction = "backward/forward", criterion = "AIC")
 best_mod_gagnant3
 ```

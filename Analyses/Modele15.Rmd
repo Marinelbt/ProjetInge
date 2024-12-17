@@ -20,12 +20,18 @@ library(stringr)
 library(broom)
 library(RcmdrMisc)
 library(pls)
-library(BradleyTerry2)
 ```
 
 ```{r}
 
 data <- read.table("Data/df_pdfs.csv", header = TRUE, sep = ",")
+
+data <- data %>%
+  separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
+  mutate(
+    score_final_r = as.integer(score_final_r),
+    score_final_v = as.integer(score_final_v)
+  )
 
 data_mod3 <- data %>%
   group_by(code_rencontre) %>%
@@ -130,8 +136,21 @@ data_mod3 <- data_mod3 %>%
   filter(equipe == "R") %>% 
   filter(statut_15_min != 0 | statut_16_min != 0)
 
-
 ```
+
+```{r}
+data_mod3$equipe <- factor(data_mod3$equipe)
+data_mod3$statut_15_min <- factor(data_mod3$statut_15_min)
+data_mod3$statut_16_min <- factor(data_mod3$statut_16_min)
+data_mod3$statut_final <- factor(data_mod3$statut_final)
+data_mod3$effet_positif <- factor(data_mod3$effet_positif)
+data_mod3$TM_derniere_min <- factor(data_mod3$TM_derniere_min)
+data_mod3$TM_derniere_min_adverse <- factor(data_mod3$TM_derniere_min_adverse)
+data_mod3$HF <- factor(data_mod3$HF)
+data_mod3$DM <- factor(data_mod3$DM)
+data_mod3$DM_adverse <- factor(data_mod3$DM_adverse)
+```
+
 
 ```{r}
 # Graphique pour effet_positif
@@ -174,11 +193,24 @@ ggplot(data.frame(Var = names(table(data_mod3$DM_adverse)),
   scale_fill_manual(values = c("skyblue", "orange")) +
   theme_minimal() +
   theme(legend.position = "none")
+
+
+# Graphique pour Statut
+ggplot(data.frame(Var = names(table(data_mod3$statut_15_min)), 
+                  Freq = as.numeric(table(data_mod3$statut_15_min))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de Statut_15_min", x = "Statut recevant à 15min", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange", "green")) +
+  theme_minimal() +
+  theme(legend.position = "none")
 ```
 
 ```{r}
 mod3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_mod3, family = "binomial")
 summary(mod3)
+
+stepwise(mod3, direction = "forward/backward", criterion = "AIC")
 ```
 
 ```{r}
@@ -187,6 +219,8 @@ data_egalite_3 <- data_mod3 %>%
 
 mod_egalite4 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_egalite_3, family = "binomial")
 summary(mod_egalite4)
+
+stepwise(mod_egalite4, direction = "forward/backward", criterion = "AIC")
 ```
 
 ```{r}
@@ -195,6 +229,8 @@ data_perdant_3 <- data_mod3 %>%
 
 mod_perdant4 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_perdant_3, family = "binomial")
 summary(mod_perdant4)
+
+stepwise(mod_perdant41, direction = "forward/backward", criterion = "AIC")
 ```
 
 ```{r}
@@ -203,4 +239,6 @@ data_gagnant_3 <- data_mod3 %>%
 
 mod_gagnant4 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_gagnant_3, family = "binomial")
 summary(mod_gagnant4)
+
+stepwise(mod_gagnant4, direction = "forward/backward", criterion = "AIC")
 ```
