@@ -268,34 +268,91 @@ point_jour_H <- point_jour %>% filter(HF == 'H')
 
 # Point par jour de la compétition masculine D1 et D2, 2223 et 2324
 for (i in 1:nrow(point_jour_H)){
-  point_jour_H$J2[i] <- ifelse(is.na(point_jour_H$J1[i])==T, 
-                               point_jour_H$J2[i],
-                               point_jour_H$J2[i] + point_jour_H$J1[i])
-  for (j in 7:35){  # j = [J3:J30]
+  if (is.na(point_jour_H$J1[i]) == T){
+    point_jour_H$J1[i] <- 0
+  }
+  for (j in 6:34){  # j = [J2:J6]
     if (is.na(point_jour_H[i,j-1])==T){
-      point_jour_H[i,j] <- point_jour_H[i,j] + point_jour_H[i,j-2]
+      point_jour_H[i,j-1] <- point_jour_H[i,j-2]
+      point_jour_H[i,j] <- point_jour_H[i,j] + point_jour_H[i,j-1]
     } else {
       point_jour_H[i,j] <- point_jour_H[i,j] + point_jour_H[i,j-1]
     }
   }
+  if(is.na(point_jour_H$J30[i])==T){
+    point_jour_H$J30[i] <- point_jour_H$J25[i]
+  }
+  
 }
 
 # Point par jour de la compétition féminine D1 et D2, 2223 et 2324
 for (i in 1:nrow(point_jour_F)){
-  point_jour_F$J2[i] <- ifelse(is.na(point_jour_F$J1[i])==T, 
-                               point_jour_F$J2[i],
-                               point_jour_F$J2[i] + point_jour_F$J1[i])
-  for (j in 7:30){  # j = [J3:J26]
+  if (is.na(point_jour_F$J1[i]) == T){
+    point_jour_F$J1[i] <- 0
+  }
+  for (j in 6:30){  # j = [J2:J26]
     if (is.na(point_jour_F[i,j-1])==T){
-      point_jour_F[i,j] <- point_jour_F[i,j] + point_jour_F[i,j-2]
+      point_jour_F[i,j-1] <- point_jour_F[i,j-2]
+      point_jour_F[i,j] <- point_jour_F[i,j] + point_jour_F[i,j-1]
     } else {
       point_jour_F[i,j] <- point_jour_F[i,j] + point_jour_F[i,j-1]
     }
   }
+  if(is.na(point_jour_F$J26[i])==T){
+    point_jour_F$J26[i] <- point_jour_F$J25[i]
+  }
+  
 }
-head(point_jour_F)
 
 
-data_mod1 <- read.csv("Analyses/data_mod1.csv")
-table_disj_tm <- table(data_mod1$TM_derniere_min, data_mod1$TM_derniere_min_adverse)
-table_disj_dm <- table(data_mod1$DM, data_mod1$DM_adverse)
+point_jour_F$saison <- factor(point_jour_F$saison)
+point_jour_F$division <- factor(point_jour_F$division)
+
+point_jour_H$saison <- factor(point_jour_H$saison)
+point_jour_H$division <- factor(point_jour_H$division)
+
+##### Evolution difference Femme
+
+summary_df_F <- point_jour_F %>% 
+  select(-c("match_joue", "total_point")) %>% 
+  group_by(saison, division) %>%
+  summarise(across(where(is.numeric), list(Max = max, 
+                                           Min = min), 
+                   .names = "{.col}_{.fn}")) %>%
+  pivot_longer(cols = -c(saison, division), 
+               names_to = c("Jour", ".value"), 
+               names_pattern = "(.*)_(.*)") %>%  
+  mutate (Diff = Max - Min)
+
+summary_df_F$Jour <- factor(summary_df_F$Jour, 
+                          levels = unique(summary_df_F$Jour[order(as.numeric(str_extract(summary_df_F$Jour, "\\d+")))]))
+
+ggplot(summary_df_F, aes(x = Jour, group = interaction(saison, division))) +
+  geom_line(aes(y = Diff, color = interaction(saison, division))) +
+  labs(title = "Évolution dfférence de points entre premier et dernier",
+       x = "Journées", y = "Ecarts", color = "Saison-Division") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#### Evolution difference Homme
+
+summary_df_H <- point_jour_H %>% 
+  select(-c("match_joue", "total_point")) %>% 
+  group_by(saison, division) %>%
+  summarise(across(where(is.numeric), list(Max = max, 
+                                           Min = min), 
+                   .names = "{.col}_{.fn}")) %>%
+  pivot_longer(cols = -c(saison, division), 
+               names_to = c("Jour", ".value"), 
+               names_pattern = "(.*)_(.*)") %>%  
+  mutate (Diff = Max - Min)
+
+summary_df_H$Jour <- factor(summary_df_H$Jour, 
+                          levels = unique(summary_df_H$Jour[order(as.numeric(str_extract(summary_df_H$Jour, "\\d+")))]))
+
+ggplot(summary_df_H, aes(x = Jour, group = interaction(saison, division))) +
+  geom_line(aes(y = Diff, color = interaction(saison, division))) +
+  labs(title = "Évolution dfférence de points entre premier et dernier",
+       x = "Journées", y = "Ecarts", color = "Saison-Division") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
