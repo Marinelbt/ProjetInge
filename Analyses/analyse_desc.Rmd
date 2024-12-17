@@ -208,3 +208,17 @@ score_moyen <- score_moyen_r %>%
 
 ```
 
+# Tableau disjonctif entre TM et DM
+
+```{r}
+data_mod1 <- read.csv("../Analyses/data_mod1.csv")
+table_disj_tm <- as.data.frame(table(data_mod1$TM_derniere_min, data_mod1$TM_derniere_min_adverse))
+table_disj_dm <- as.data.frame(table(data_mod1$DM, data_mod1$DM_adverse))
+
+colnames(table_disj_tm) <- c("tm", "tm_adverse", "count")
+colnames(table_disj_dm) <- c("dm", "dm_adverse", "count")
+
+print(table_disj_dm)
+print(table_disj_tm)
+```
+

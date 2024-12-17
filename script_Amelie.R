@@ -296,3 +296,6 @@ for (i in 1:nrow(point_jour_F)){
 head(point_jour_F)
 
 
+data_mod1 <- read.csv("Analyses/data_mod1.csv")
+table_disj_tm <- table(data_mod1$TM_derniere_min, data_mod1$TM_derniere_min_adverse)
+table_disj_dm <- table(data_mod1$DM, data_mod1$DM_adverse)

@@ -20,7 +20,7 @@ library(stringr)
 library(broom)
 library(RcmdrMisc)
 library(pls)
-library(BradleyTerry2)
+#library(BradleyTerry2)
 ```
 
 # Modèle 1 
@@ -387,50 +387,10 @@ data_mod1$statut_59_min <- as.factor(data_mod1$statut_59_min)
 
 mod0 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_mod1, family = "binomial")
 summary(mod0)
-```
-- Prendre un temps-mort à la dernière minute multiplie les odds de "remonter le match" par exp(0.66) ≈ 1,93 donc cela augmente les chances de "remonter le match"
-- Un temps mort de l'equipe adverse à la dernière minute multiplie les odds de "remonter le match" par exp(-0.86) ≈ 0,42 donc cela diminue les chances de "remonter le match"
-- Être une équipe masculine multiplie les odds de "remonter le match" par exp(-0.45) ≈ 0,64 donc cela diminue les chances de "remonter le match"
-- Être l'équipe visiteuse multiplie les odds de "remonter le match" par exp(-0.38) ≈ 0,68 donc cela diminue les chances de "remonter le match"
-- Chaque point de différence dans le classement multiplie les odds de "remonter le match" par exp(-0.05) ≈ 0,95. Donc une plus grande différence de classement, quelle que soit sa direction (positif ou négatif), réduit les chances de "remonter un match".
-Cela reflète un désavantage structurel des équipes en fonction de leur classement relatif :
-Si l'équipe analysée est mieux classée, son besoin ou sa probabilité de "remontée" est moindre.
-Si elle est moins bien classée, l'écart de niveau complique davantage une remontée.
 
-
-```{r}
-contrasts(data_mod1$statut_59_min) <- contr.sum(levels(data_mod1$statut_59_min))
-
-mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + statut_59_min, data = data_mod1, family = "binomial")
-summary(mod1)
-
-mod1_summary <- tidy(mod1)
-
-#graphique des coefficients
-ggplot(mod1_summary, aes(x = estimate, y = term, color = p.value < 0.05)) +
-  geom_point() +
-  geom_errorbarh(aes(xmin = estimate - std.error, xmax = estimate + std.error)) +
-  # Ajouter une ligne verticale à x = 0
-  geom_vline(xintercept = 0, linetype = "dashed", color = "grey") +
-  labs(title = "Coefficients de la régression logistique",
-       x = "Estimation des Coefficients (log-odds)",
-       y = "Variables") +
-  theme_minimal() +
-  scale_color_manual(values = c("red3", "green4")) + 
-  theme(axis.text.y = element_text(size = 12)) 
+stepwise(mod0, direction="forward/backward", criterion="AIC")
 ```
 
-- Prendre un temps-mort à la dernière minute multiplie les odds de "remonter le match" par exp(0.54) ≈ 1,72 donc cela augmente les chances de "remonter le match"
-- Être une équipe masculine multiplie les odds de "remonter le match" par exp(-0.72) ≈ 0,49 donc cela diminue les chances de "remonter le match"
-- Chaque point de différence dans le classement multiplie les odds de "remonter le match" par exp(-0.03) ≈ 0,97. Donc une plus grande différence de classement, quelle que soit sa direction (positif ou négatif), réduit les chances de "remonter un match".
-Cela reflète un désavantage structurel des équipes en fonction de leur classement relatif :
-Si l'équipe analysée est mieux classée, son besoin ou sa probabilité de "remontée" est moindre.
-Si elle est moins bien classée, l'écart de niveau complique davantage une remontée.
-- Un 2min de l'équipe adverse dans les 3 dernières minutes du match multiplie les odds de "remonter le match" par exp(0.46) ≈ 1,58 donc cela augmente les chances de "remonter le match"
-- Un 2min de sa propre équipe dans les 3 dernières minutes du match multiplie les odds de "remonter le match" par exp(-0.78) ≈ 0,46 donc cela diminue les chances de "remonter le match"
-- Etre en train de perdre à 59 min multiplie les odds de "remonter le match" par exp(-1.43) ≈ 0,24 donc cela diminue les chances de "remonter le match"
-- Etre à égalité à 59 min multiplie les odds de "remonter le match" par exp(-0.90) ≈ 0,41 donc cela diminue les chances de "remonter le match"
-- Etre en tarin de gagner à 59 min multiplie les odds de "remonter le match" par exp(2.33) ≈ 10,3 donc cela augmente les chances de gagner le match 
 
 ## Un modèle pour chaque statut à 59 min
 
@@ -444,8 +404,9 @@ summary(mod_egalite1)
 mod_egalite2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_egalite, family = "binomial")
 summary(mod_egalite2)
 
-
+stepwise(mod_egalite2, direction="forward/backward", criterion="AIC")
 ```
+
 
 ```{r}
 data_perdant <- data_mod1 %>% 
@@ -456,6 +417,8 @@ summary(mod_perdant1)
 
 mod_perdant2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_perdant, family = "binomial")
 summary(mod_perdant2)
+
+stepwise(mod_perdant2, direction="forward/backward", criterion="AIC")
 ```
 
 ```{r}
@@ -467,4 +430,6 @@ summary(mod_gagnant1)
 
 mod_gagnant2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_gagnant, family = "binomial")
 summary(mod_gagnant2)
+
+stepwise(mod_gagnant2, direction="forward/backward", criterion="AIC")
 ```
