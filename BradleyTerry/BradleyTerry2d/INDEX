@@ -1,0 +1,27 @@
+BradleyTerry2d-package
+                        What the package does (short line) ~~ package
+                        title ~~
+anovabt2d              Analysis of deviance table.
+bt1d                    Fits a standard Bradley-Terry model.
+bt2d                    Two-dimensional Bradley-Terry modeling
+citations               Citation dataset.
+crunchy                 Crunchy dataset.
+d1                      Internal function.
+d2                      Internal function.
+d2klrs                  Internal function.
+d2vrais                 Internal function.
+data2tab                Converts data.frame into contingency tables.
+dkr                     Internal function.
+dvrais                  Internal function.
+ell                     Internal function.
+initalgo                Internal function.
+invlogit                Internal function.
+invlogit.mat            Internal function.
+log0                    Internal function.
+logit                   Internal function.
+lower0                  Internal function.
+plot.bt2d               Plots the result of a 2D Bradley-Terry model
+                        fitting.
+resdev2dbt              Internal function.
+summary.bt2d            2D Bradley-Terry model summary
+tab2data                Converts contingency tables into data.frames.

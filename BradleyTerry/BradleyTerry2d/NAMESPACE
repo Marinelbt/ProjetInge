@@ -1,0 +1,8 @@
+export(anovabt2d,tab2data,bt2d,plot.bt2d,summary.bt2d)
+
+ importFrom("graphics", "lines", "segments", "text")
+ importFrom("stats", "binomial", "cmdscale", "glm", "pchisq", "pt","qchisq")
+S3method(plot, bt2d)
+
+S3method(summary, bt2d)
+
