@@ -26,7 +26,7 @@ library(RcmdrMisc)
 
 ```{r}
 
-data <- read.table("Data/df_pdfs.csv", header = TRUE, sep = ",")
+data <- read.table("../Data/df_pdfs.csv", header = TRUE, sep = ",")
 
 data <- data %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
@@ -39,7 +39,7 @@ data_mod2 <- data %>%
   group_by(code_rencontre) %>%
   filter(any(Temps_Sec < 29 * 60)) %>%
   ungroup() %>% 
-  group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur, score_final_r, score_final_v, fichier) %>%
+  group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur, journee, score_final_r, score_final_v, fichier) %>%
   summarise(temps_proche_29_min = max(Temps_Sec[Temps_Sec < 29 * 60], na.rm = TRUE),
             statut_29_min_r = first(statut_recevant[Temps_Sec == temps_proche_29_min]),
             statut_29_min_v = -statut_29_min_r,
@@ -155,6 +155,55 @@ data_mod2$DM_adverse <- factor(data_mod2$DM_adverse)
 
 
 ```{r}
+point_jour_final <- read.csv("../point_jour_final.csv")
+point_jour_final$saison <- factor(point_jour_final$saison)
+
+data_mod2 <- data_mod2 %>% 
+  mutate(club_recevant = case_when(
+    club_recevant == "PARIS 92" ~ "PARIS",
+    club_recevant == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
+    club_recevant == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
+    club_recevant == "LE POUZIN HB 07" ~ "LE POUZIN HB",
+    club_recevant == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
+    club_recevant == "LIMOGES HAND 87" ~ "LIMOGES HAND",
+    club_recevant == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
+    club_recevant == "NANCY HANDBALL" ~ "NANCY METROPOLE",
+    club_recevant == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
+    TRUE ~ club_recevant
+  ))
+
+data_mod2 <- data_mod2 %>% 
+  mutate(club_visiteur = case_when(
+    club_visiteur == "PARIS 92" ~ "PARIS",
+    club_visiteur == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
+    club_visiteur == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
+    club_visiteur == "LE POUZIN HB 07" ~ "LE POUZIN HB",
+    club_visiteur == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
+    club_visiteur == "LIMOGES HAND 87" ~ "LIMOGES HAND",
+    club_visiteur == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
+    club_visiteur == "NANCY HANDBALL" ~ "NANCY METROPOLE",
+    club_visiteur == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
+    TRUE ~ club_visiteur
+  ))
+
+data_mod2 <- data_mod2 %>% 
+  left_join(point_jour_final, by = c("HF","division","saison", "journee","club_recevant"="club")) %>% 
+  mutate(points_recevant = points) %>% 
+  select(-c(match_joue, total_point, points))
+
+data_mod2 <- data_mod2 %>% 
+  left_join(point_jour_final, by = c("HF","division","saison", "journee","club_visiteur"="club")) %>% 
+  mutate(points_visiteur = points) %>% 
+  select(-c(match_joue, total_point, points))
+
+data_mod2 <- data_mod2 %>% 
+  mutate (diff_point = points_recevant - points_visiteur)
+
+data_mod2$diff_point_norm <- scale(data_mod2$diff_point)
+```
+
+
+```{r}
 # Graphique pour effet_positif
 ggplot(data.frame(Var = names(table(data_mod2$effet_positif)), 
                   Freq = as.numeric(table(data_mod2$effet_positif))), aes(x = Var, y = Freq, fill = Var)) +
@@ -197,7 +246,7 @@ ggplot(data.frame(Var = names(table(data_mod2$DM_adverse)),
 ```
 
 ```{r}
-mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_mod2, family = "binomial")
+mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_mod2, family = "binomial")
 summary(mod2)
 
 best_mod2 <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
@@ -208,7 +257,7 @@ best_mod2
 data_egalite_2 <- data_mod2 %>% 
   filter(statut_29_min == "0")
 
-mod_egalite3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_egalite_2, family = "binomial")
+mod_egalite3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_egalite_2, family = "binomial")
 summary(mod_egalite3)
 
 best_mod_egalite3 <- stepwise(mod_egalite3, direction = "backward/forward", criterion = "AIC")
@@ -219,7 +268,7 @@ best_mod_egalite3
 data_perdant_2 <- data_mod2 %>% 
   filter(statut_29_min == "-1")
 
-mod_perdant3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_perdant_2, family = "binomial")
+mod_perdant3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_perdant_2, family = "binomial")
 summary(mod_perdant3)
 
 best_mod_perdant3 <- stepwise(mod_perdant3, direction = "backward/forward", criterion = "AIC")
@@ -230,7 +279,7 @@ best_mod_perdant3
 data_gagnant_2 <- data_mod2 %>% 
   filter(statut_29_min == "1")
 
-mod_gagnant3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM, data = data_gagnant_2, family = "binomial")
+mod_gagnant3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_gagnant_2, family = "binomial")
 summary(mod_gagnant3)
 
 best_mod_gagnant3 <- stepwise(mod_gagnant3, direction = "backward/forward", criterion = "AIC")
