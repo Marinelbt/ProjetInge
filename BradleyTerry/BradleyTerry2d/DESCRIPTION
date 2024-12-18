@@ -1,0 +1,18 @@
+Package: BradleyTerry2d
+Type: Package
+Title: 2-Dimensional Bradley-Terry Modeling of Paired Comparison Data
+Version: 1.0
+Author: D. Causeur and F. Husson
+Maintainer: David Causeur <david.causeur@agrocampus-ouest.fr>
+Description: Analyzing paired comparison
+        data by a 2D extension of the usual Bradley-Terry model. This
+        model is especially useful to detect violation of linearity in
+        the basic Bradley-Terry model, which can be due to intransitive
+        patterns such as "A is better than B", "B is better than C" but
+        "C is better than A".
+LazyLoad: yes
+License: GPL (>= 2)
+Encoding: UTF-8
+VignetteBuilder: knitr
+NeedsCompilation: no
+Packaged: 2024-09-24 15:20:12 UTC; husson
