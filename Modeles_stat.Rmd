@@ -1112,9 +1112,11 @@ bt_model <- BTm(
   outcome = cbind(victoires_r, victoires_v),
   player1 = club_recevant,
   player2 = club_visiteur,
-  formula = ~ TM_derniere_min + DM_adverse,
   data = data_bradley_terry,
 )
+
+data_bradley_terry %>% 
+  readr::write_rds(file  = "data_bt.rds", compress = "xz")
 
 summary(bt_model)
 
@@ -1138,6 +1140,11 @@ summary(bt_model)
 # # Calcul de l'accuracy
 # accuracy <- mean(cvpred == data_mod1$effet_positif)
 # accuracy
+
+```
+
+```{r}
+data(baseball)
 
 ```
 
