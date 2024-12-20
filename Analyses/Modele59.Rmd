@@ -142,7 +142,7 @@ data_mod1$statut_59_min <- as.factor(data_mod1$statut_59_min)
 ```
 
 ```{r}
-point_jour_final <- read.csv("../point_jour_final.csv", row.names = 1)
+point_jour_final <- read.csv("../Data/point_jour_final.csv", row.names = 1)
 point_jour_final$saison <- factor(point_jour_final$saison)
 
 data_mod1 <- data_mod1 %>% 
@@ -255,6 +255,15 @@ ggplot(data.frame(Var = names(table(data_mod1$DM_adverse)),
   theme_minimal() +
   theme(legend.position = "none")
 
+
+ggplot(data.frame(Var = names(table(data_mod1$statut_59_min)), 
+                  Freq = as.numeric(table(data_mod1$statut_59_min))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution du Statut", x = "Statut", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange", "lightgreen")) +
+  theme_minimal() +
+  theme(legend.position = "none")
 ```
 
 
