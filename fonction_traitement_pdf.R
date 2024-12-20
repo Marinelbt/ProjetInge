@@ -61,9 +61,13 @@ traitement_pdf <- function(pdf_file) {
     
     # Extraire le nom et prénom de la ligne suivante pour chaque occurrence de "Officiel Resp"
     coach <- sapply(index_coach, function(index) {
-      # Extraire la ligne suivante
-      line_next <- lines[index + 1]
-      name_and_surname <- str_extract(line_next, "^[^\\d]+")  # Capture tout avant un chiffre
+      if (length(which(str_detect(lines, "Officiel Resp A"))) != 0){
+        line_next <- lines[index]
+      } else {
+        # Extraire la ligne suivante
+        line_next <- lines[index +1]
+      }
+      name_and_surname <- str_extract(line_next, "[A-ZÉÈÊÎÔÛÄËÏÖÜŸÇ]+\\s+[a-zéèêîôûäëïöüÿç]+")
       str_trim(name_and_surname)  # Supprimer les espaces superflus
     })
   } else {
@@ -144,6 +148,7 @@ ajout_variables <- function(df_info_match) {
   return(df_final)
 }
 
-ajout_variables(traitement_pdf("pdf/rencontre_D1F_2223_2987.pdf"))
+ajout_variables(traitement_pdf("pdf/rencontre_D1H_2021_589.pdf"))
 
+pdf_file <- "pdf/rencontre_D1H_2021_383.pdf"
 

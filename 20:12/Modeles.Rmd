@@ -1,0 +1,69 @@
+---
+title: "Modeles"
+author: "Amélie Brejot"
+date: "2024-12-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Modèle à 59 min
+
+```{r}
+data_59 <- read.csv("Analyses/data_mod_59min.csv")
+```
+
+
+```{r}
+# Graphique pour effet_positif
+ggplot(data.frame(Var = names(table(data_59$effet_positif)), 
+                  Freq = as.numeric(table(data_59$effet_positif))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de effet_positif", x = "Effet positif", y = "Fréquence") +
+  scale_fill_manual(values = c("red", "green3")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour TM_derniere_min
+ggplot(data.frame(Var = names(table(data_59$TM_derniere_min)), 
+                  Freq = as.numeric(table(data_59$TM_derniere_min))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de TM_derniere_min", x = "Temps mort à la dernière minute", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour HF
+ggplot(data.frame(Var = names(table(data_59$HF)), 
+                  Freq = as.numeric(table(data_59$HF))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de HF", x = "Hommes ou femmes", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour DM_adverse
+ggplot(data.frame(Var = names(table(data_59$DM_adverse)), 
+                  Freq = as.numeric(table(data_59$DM_adverse))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de DM_adverse", x = "2min de l'adversaire", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+
+# Modèle global
+
+```{r}
+mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + diff_point_norm + club_recevant, data = data_59, family = "binomial")
+summary(mod2)
+
+stepwise(mod2, direction = "backward/forward", criterion = "AIC")
+```

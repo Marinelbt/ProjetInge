@@ -279,8 +279,8 @@ point_jour_F$division <- factor(point_jour_F$division)
 point_jour_H$saison <- factor(point_jour_H$saison)
 point_jour_H$division <- factor(point_jour_H$division)
 
-write.csv(point_jour_F, "point_jour_F.csv")
-write.csv(point_jour_H, "point_jour_H.csv")
+# write.csv(point_jour_F, "point_jour_F.csv")
+# write.csv(point_jour_H, "point_jour_H.csv")
 ```
 
 Evolution difference de classement par jour
