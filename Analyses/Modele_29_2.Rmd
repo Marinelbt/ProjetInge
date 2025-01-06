@@ -1,7 +1,7 @@
 ---
-title: "Modele29"
-author: "Marine"
-date: "2024-12-16"
+title: "Modèles à 29 minutes v2"
+author: "Amélie Brejot"
+date: "2024-12-24"
 output: html_document
 ---
 
@@ -9,25 +9,25 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Importations
+# Import
 
 ```{r}
-library(tidyr)
+library(readr)
 library(dplyr)
+library(tidyverse)
 library(ggplot2)
-library(lubridate)
-library(stringr)
-library(broom)
-library(RcmdrMisc)
-library(pls)
-#library(BradleyTerry2)
 library(RcmdrMisc)
 ```
 
+# Import données
+
 ```{r}
+data <- read.csv("../Data/df_pdfs.csv", header = TRUE, sep = ",")
+```
 
-data <- read.table("../20:12/df_pdfs.csv", header = TRUE, sep = ",")
+# Préparation données
 
+```{r}
 data <- data %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
   mutate(
@@ -128,6 +128,8 @@ data_mod2 <- data %>%
       grepl("D2", fichier, ignore.case = TRUE) ~ "D2"
     ),
     saison = case_when(
+      grepl("2021", fichier, ignore.case = TRUE) ~ "2021",
+      grepl("2122", fichier, ignore.case = TRUE) ~ "2122",
       grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
       grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
     )
@@ -138,10 +140,12 @@ data_mod2 <- data_mod2 %>%
   filter(equipe == "R") %>% 
   filter(statut_29_min != 0 | statut_30_min != 0)
 
+data_mod2 <- as.data.frame(data_mod2)
 ```
 
+# Mise en facteur
+
 ```{r}
-data_mod2$equipe <- factor(data_mod2$equipe)
 data_mod2$statut_29_min <- factor(data_mod2$statut_29_min)
 data_mod2$statut_30_min <- factor(data_mod2$statut_30_min)
 data_mod2$statut_final <- factor(data_mod2$statut_final)
@@ -152,61 +156,79 @@ data_mod2$HF <- factor(data_mod2$HF)
 data_mod2$DM <- factor(data_mod2$DM)
 data_mod2$DM_adverse <- factor(data_mod2$DM_adverse)
 data_mod2$club_recevant <- factor(data_mod2$club_recevant)
+data_mod2$division <- factor(data_mod2$division)
+data_mod2$saison <- factor(data_mod2$saison)
+```
+
+# Mise à jour nom 
+
+```{r}
+ data_mod2 <- data_mod2 %>% 
+    mutate(club_recevant = case_when(
+      club_recevant == "PARIS 92" ~ "PARIS",
+      club_recevant == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
+      club_recevant == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
+      club_recevant == "LE POUZIN HB 07" ~ "LE POUZIN HB",
+      club_recevant == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
+      club_recevant == "LIMOGES HAND 87" ~ "LIMOGES HAND",
+      club_recevant == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
+      club_recevant == "NANCY HANDBALL" ~ "NANCY METROPOLE",
+      club_recevant == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
+      club_recevant == "VILLEURBANNE HANDBALL ASSOCIATION" ~ "VILLEURBANNE HANDBALL",
+      club_recevant == "TREMBLAY EN FRANCE HANDBALL" ~ "TREMBLAY HANDBALL",
+      club_recevant == "TREMBLAY-EN-FRANCE HANDBALL" ~ "TREMBLAY HANDBALL",
+      club_recevant == "TOULON METROPOLE VAR HB" ~ "TOULON METROPOLE VAR HANDBALL",
+      club_recevant == "BILLERE HANDBALL" ~ "BILLERE HANDBALL PAU PYRENEES",
+      club_recevant == "CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
+      club_recevant == "CAVIGAL NICE SPORTS HANDBALL" ~ "CAVIGAL NICE HANDBALL",
+      club_recevant == "FRONTIGNAN HANDBALL" ~ "FRONTIGNAN THAU HANDBALL",
+      club_recevant == "HBC NANTAIS" ~ "HBC NANTES",
+      club_recevant == "MASSY ESSONNE HB" ~ "MASSY ESSONNE HANDBALL",
+      club_recevant == "NOISY-LE-GRAND HANDBALL" ~ "NOISY LE GRAND HANDBALL",
+      TRUE ~ club_recevant
+    ))
+
+data_mod2 <- data_mod2 %>% 
+    mutate(club_visiteur = case_when(
+      club_visiteur == "PARIS 92" ~ "PARIS",
+      club_visiteur == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
+      club_visiteur == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
+      club_visiteur == "LE POUZIN HB 07" ~ "LE POUZIN HB",
+      club_visiteur == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
+      club_visiteur == "LIMOGES HAND 87" ~ "LIMOGES HAND",
+      club_visiteur == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
+      club_visiteur == "NANCY HANDBALL" ~ "NANCY METROPOLE",
+      club_visiteur == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
+      club_visiteur == "VILLEURBANNE HANDBALL ASSOCIATION" ~ "VILLEURBANNE HANDBALL",
+      club_visiteur == "TREMBLAY EN FRANCE HANDBALL" ~ "TREMBLAY HANDBALL",
+      club_visiteur == "TREMBLAY-EN-FRANCE HANDBALL" ~ "TREMBLAY HANDBALL",
+      club_visiteur == "TOULON METROPOLE VAR HB" ~ "TOULON METROPOLE VAR HANDBALL",
+      club_visiteur == "BILLERE HANDBALL" ~ "BILLERE HANDBALL PAU PYRENEES",
+      club_visiteur == "CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
+      club_visiteur == "CAVIGAL NICE SPORTS HANDBALL" ~ "CAVIGAL NICE HANDBALL",
+      club_visiteur == "FRONTIGNAN HANDBALL" ~ "FRONTIGNAN THAU HANDBALL",
+      club_visiteur == "HBC NANTAIS" ~ "HBC NANTES",
+      club_visiteur == "MASSY ESSONNE HB" ~ "MASSY ESSONNE HANDBALL",
+      club_visiteur == "NOISY-LE-GRAND HANDBALL" ~ "NOISY LE GRAND HANDBALL",
+      TRUE ~ club_visiteur
+    ))
 ```
 
 
+# Ajout de la variable classement
+
 ```{r}
-point_jour_F <- read.csv("../20:12/point_jour_F.csv", row.names = 1)
-point_jour_F$HF <- 'F'
-point_jour_F$J0 <- 0
-point_jour_F <- point_jour_F %>% relocate('J0', .after = 'total_point')
-point_jour_H <- read.csv("../20:12/point_jour_H.csv", row.names = 1)
-point_jour_H$J0 <- 0
-point_jour_H <- point_jour_H %>% relocate('J0', .after = 'total_point')
-
-for (j in 32:7){
-  point_jour_F[,j] <- point_jour_F[,j-1]
-}
-
-for (j in 37:8){
-  point_jour_H[,j] <- point_jour_H[,j-1]
-}
-
-point_jour_F <- point_jour_F %>%
-  select(-J0) %>% 
-  pivot_longer(cols = starts_with("J"), names_to = "journee", values_to = "points") %>%
-  mutate(journee = toupper(journee))
-
-point_jour_H <- point_jour_H %>%
-  select(-J0) %>% 
-  pivot_longer(cols = starts_with("J"), names_to = "journee", values_to = "points") %>%
-  mutate(journee = toupper(journee))
-
-point_jour_final <- bind_rows(point_jour_F, point_jour_H)
-point_jour_final$saison <- factor(point_jour_final$saison)
-
-data_mod2 <- data_mod2 %>% 
-  left_join(point_jour_final, by = c("HF","division","saison", "journee","club_recevant"="club")) %>% 
-  mutate(points_recevant = points) %>% 
-  select(-c(match_joue, total_point, points))
-
-data_mod2 <- data_mod2 %>% 
-  left_join(point_jour_final, by = c("HF","division","saison", "journee","club_visiteur"="club")) %>% 
-  mutate(points_visiteur = points) %>% 
-  select(-c(match_joue, total_point, points))
-
-data_mod2 <- data_mod2 %>% 
-  mutate (diff_point = points_recevant - points_visiteur)
-
-# NA dus à l'absence de certaines fdm en D1H_2021 et D2H_2021
-
-diff_norme <- read.csv("../20:12/data_diff_point_norme.csv", row.names = 1)
+diff_norme <- read.csv("../Data/data_diff_point_norme.csv", row.names = 1)
 diff_norme$saison <- factor(diff_norme$saison)
 
 data_mod2 <- data_mod2 %>% 
-  left_join(diff_norme, by = join_by(code_rencontre, journee, HF, division, saison))
+  left_join(diff_norme, by = join_by(code_rencontre, journee, HF, division, saison)) %>% 
+  drop_na()
 ```
 
+NA dus à l'absence de certaines fdm en D1H_2021 et D2H_2021
+
+# Analyse descriptive
 
 ```{r}
 # Graphique pour effet_positif
@@ -248,45 +270,86 @@ ggplot(data.frame(Var = names(table(data_mod2$DM_adverse)),
   scale_fill_manual(values = c("skyblue", "orange")) +
   theme_minimal() +
   theme(legend.position = "none")
+
+# Graphique statut à 29 minute
+ggplot(data.frame(Var = names(table(data_mod2$statut_29_min)), 
+                  Freq = as.numeric(table(data_mod2$statut_29_min))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution du statut à 29 min", x = "Statut à 29 min", y = "Fréquence") +
+  scale_fill_manual(values = c("brown1", "grey", "lightgreen")) +
+  theme_minimal() +
+  theme(legend.position = "none")
 ```
 
+# Modèle global
+
 ```{r}
-mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_mod2, family = "binomial")
+mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + diff_point_norm, data = data_mod2, family = "binomial")
+#summary(mod2)
+
+mod_final <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
+
+coefficients <- coef(mod_final)
+
+# Fonction logit -> proba
+logit_to_prob <- function(logit) {
+  return(1 / (1 + exp(-logit)))
+}
+
+proba <- logit_to_prob(coefficients)
+print(proba)
+```
+
+# Modèle égalité
+
+```{r}
+data_mod2_egalite <- data_mod2 %>% 
+  filter(statut_29_min == 0)
+
+mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + diff_point_norm, data = data_mod2_egalite, family = "binomial")
+#summary(mod2)
+
+mod_final <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
+
+coefficients <- coef(mod_final)
+
+proba <- logit_to_prob(coefficients)
+print(proba)
+```
+
+# Modèle perdant
+
+```{r}
+data_mod2_perdant <- data_mod2 %>% 
+  filter(statut_29_min == -1)
+
+mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_mod2_perdant, family = "binomial")
 summary(mod2)
 
-best_mod2 <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
-best_mod2
+mod_final <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
+
+coefficients <- coef(mod_final)
+
+proba <- logit_to_prob(coefficients)
+print(proba)
 ```
+
+# Modèle gagnant
 
 ```{r}
-data_egalite_2 <- data_mod2 %>% 
-  filter(statut_29_min == "0")
+data_mod2_gagnant <- data_mod2 %>% 
+  filter(statut_29_min == 1)
 
-mod_egalite3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_egalite_2, family = "binomial")
-summary(mod_egalite3)
+mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_mod2_gagnant, family = "binomial")
+summary(mod2)
 
-best_mod_egalite3 <- stepwise(mod_egalite3, direction = "backward/forward", criterion = "AIC")
-best_mod_egalite3
+mod_final <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
+
+coefficients <- coef(mod_final)
+
+proba <- logit_to_prob(coefficients)
+print(proba)
 ```
 
-```{r}
-data_perdant_2 <- data_mod2 %>% 
-  filter(statut_29_min == "-1")
-
-mod_perdant3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_perdant_2, family = "binomial")
-summary(mod_perdant3)
-
-best_mod_perdant3 <- stepwise(mod_perdant3, direction = "backward/forward", criterion = "AIC")
-best_mod_perdant3
-```
-
-```{r}
-data_gagnant_2 <- data_mod2 %>% 
-  filter(statut_29_min == "1")
-
-mod_gagnant3 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_gagnant_2, family = "binomial")
-summary(mod_gagnant3)
-
-best_mod_gagnant3 <- stepwise(mod_gagnant3, direction = "backward/forward", criterion = "AIC")
-best_mod_gagnant3
-```
+Lorsque log-odds < 0, prob < 0.50
