@@ -132,6 +132,11 @@ data_mod1 <- data_mod1 %>%
 
 ```
 
+```{r}
+#write_csv(data_mod1, "data_59_min.csv")
+```
+
+
 # Mise en facteur
 
 ```{r}
@@ -275,11 +280,11 @@ mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_rec
 #summary(mod1)
 
 mod_final <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
-
-coefficients <- coef(mod_final)
-
-proba <- logit_to_prob(coefficients)
-print(proba)
+mod_final
+# coefficients <- coef(mod_final)
+# 
+# proba <- logit_to_prob(coefficients)
+# print(proba)
 ```
 
 # Modèle égalité
@@ -291,12 +296,12 @@ data_mod1_egalite <- data_mod1 %>%
 mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + diff_point_norm, data = data_mod1_egalite, family = "binomial")
 #summary(mod1)
 
-mod_final <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
-
-coefficients <- coef(mod_final)
-
-proba <- logit_to_prob(coefficients)
-print(proba)
+mod_final_egalite <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
+mod_final_egalite
+# coefficients <- coef(mod_final)
+# 
+# proba <- logit_to_prob(coefficients)
+# print(proba)
 ```
 
 # Modèle perdant
@@ -308,12 +313,12 @@ data_mod1_perdant <- data_mod1 %>%
 mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + diff_point_norm, data = data_mod1_perdant, family = "binomial")
 #summary(mod1)
 
-mod_final <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
-
-coefficients <- coef(mod_final)
-
-proba <- logit_to_prob(coefficients)
-print(proba)
+mod_final_perdant <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
+mod_final_perdant 
+# coefficients <- coef(mod_final)
+# 
+# proba <- logit_to_prob(coefficients)
+# print(proba)
 ```
 
 # Modèle gagnant
@@ -325,11 +330,11 @@ data_mod1_gagnant <- data_mod1 %>%
 mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + diff_point_norm, data = data_mod1_gagnant, family = "binomial")
 #summary(mod1)
 
-mod_final <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
-
-coefficients <- coef(mod_final)
-
-proba <- logit_to_prob(coefficients)
-print(proba)
+mod_final_gagnant <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
+mod_final_gagnant
+# coefficients <- coef(mod_final)
+# 
+# proba <- logit_to_prob(coefficients)
+# print(proba)
 ```
 
