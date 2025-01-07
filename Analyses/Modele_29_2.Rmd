@@ -143,6 +143,11 @@ data_mod2 <- data_mod2 %>%
 data_mod2 <- as.data.frame(data_mod2)
 ```
 
+```{r}
+#write_csv(data_mod2, "data_29_min.csv")
+```
+
+
 # Mise en facteur
 
 ```{r}
@@ -242,8 +247,8 @@ ggplot(data.frame(Var = names(table(data_mod2$effet_positif)),
   theme(legend.position = "none")
 
 # Graphique pour TM_derniere_min
-ggplot(data.frame(Var = names(table(data_mod2$TM_derniere_min)), 
-                  Freq = as.numeric(table(data_mod2$TM_derniere_min))), aes(x = Var, y = Freq, fill = Var)) +
+ggplot(data.frame(Var = names(table(data_mod2_gagnant$TM_derniere_min_adverse)), 
+                  Freq = as.numeric(table(data_mod2_gagnant$TM_derniere_min_adverse))), aes(x = Var, y = Freq, fill = Var)) +
   geom_bar(stat = "identity", color = "black") +
   geom_text(aes(label = Freq), vjust = -0.5) +
   labs(title = "Distribution de TM_derniere_min", x = "Temps mort à la dernière minute", y = "Fréquence") +
@@ -272,8 +277,9 @@ ggplot(data.frame(Var = names(table(data_mod2$DM_adverse)),
   theme(legend.position = "none")
 
 # Graphique statut à 29 minute
-ggplot(data.frame(Var = names(table(data_mod2$statut_29_min)), 
-                  Freq = as.numeric(table(data_mod2$statut_29_min))), aes(x = Var, y = Freq, fill = Var)) +
+df <- data_mod2 %>% filter(HF == 'H')
+ggplot(data.frame(Var = names(table(df$statut_29_min)), 
+                  Freq = as.numeric(table(df$statut_29_min))), aes(x = Var, y = Freq, fill = Var)) +
   geom_bar(stat = "identity", color = "black") +
   geom_text(aes(label = Freq), vjust = -0.5) +
   labs(title = "Distribution du statut à 29 min", x = "Statut à 29 min", y = "Fréquence") +
@@ -285,71 +291,72 @@ ggplot(data.frame(Var = names(table(data_mod2$statut_29_min)),
 # Modèle global
 
 ```{r}
-mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + diff_point_norm, data = data_mod2, family = "binomial")
+data_mod2_filter <- data_mod2 %>% 
+  filter(HF == 'H')
+
+mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + diff_point_norm, data = data_mod2_filter, family = "binomial")
 #summary(mod2)
 
 mod_final <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
-
-coefficients <- coef(mod_final)
-
-# Fonction logit -> proba
-logit_to_prob <- function(logit) {
-  return(1 / (1 + exp(-logit)))
-}
-
-proba <- logit_to_prob(coefficients)
-print(proba)
+mod_final
+# coefficients <- coef(mod_final)
+# 
+# # Fonction logit -> proba
+# logit_to_prob <- function(logit) {
+#   return(1 / (1 + exp(-logit)))
+# }
+# 
+# proba <- logit_to_prob(coefficients)
+# print(proba)
 ```
 
 # Modèle égalité
 
 ```{r}
-data_mod2_egalite <- data_mod2 %>% 
+data_mod2_egalite <- data_mod2_filter %>% 
   filter(statut_29_min == 0)
 
 mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + diff_point_norm, data = data_mod2_egalite, family = "binomial")
 #summary(mod2)
 
-mod_final <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
-
-coefficients <- coef(mod_final)
-
-proba <- logit_to_prob(coefficients)
-print(proba)
+mod_final_egalite <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
+mod_final_egalite
+# coefficients <- coef(mod_final)
+# 
+# proba <- logit_to_prob(coefficients)
+# print(proba)
 ```
 
 # Modèle perdant
 
 ```{r}
-data_mod2_perdant <- data_mod2 %>% 
+data_mod2_perdant <- data_mod2_filter %>% 
   filter(statut_29_min == -1)
 
-mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_mod2_perdant, family = "binomial")
+mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + diff_point_norm, data = data_mod2_perdant, family = "binomial")
 summary(mod2)
 
-mod_final <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
-
-coefficients <- coef(mod_final)
-
-proba <- logit_to_prob(coefficients)
-print(proba)
+mod_final_perdant <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
+mod_final_perdant
+# coefficients <- coef(mod_final)
+# 
+# proba <- logit_to_prob(coefficients)
+# print(proba)
 ```
 
 # Modèle gagnant
 
 ```{r}
-data_mod2_gagnant <- data_mod2 %>% 
+data_mod2_gagnant <- data_mod2_filter %>% 
   filter(statut_29_min == 1)
 
-mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_mod2_gagnant, family = "binomial")
+mod2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + diff_point_norm, data = data_mod2_gagnant, family = "binomial")
 summary(mod2)
 
-mod_final <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
-
-coefficients <- coef(mod_final)
-
-proba <- logit_to_prob(coefficients)
-print(proba)
+mod_final_gagnant <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
+mod_final_gagnant
+# coefficients <- coef(mod_final)
+# 
+# proba <- logit_to_prob(coefficients)
+# print(proba)
 ```
-
-Lorsque log-odds < 0, prob < 0.50
