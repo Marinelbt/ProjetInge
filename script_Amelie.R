@@ -177,7 +177,7 @@ df_final$journee <- journee
 # Egalité : +2
 # Défaite : +1
 
-df <- read.csv("df_pdfs.csv")
+df <- read.csv("Data/df_pdfs.csv")
 df <- df %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
   mutate(
@@ -283,64 +283,36 @@ for (i in 1:nrow(result)){
 # ne pas exécuter car fichier compléter à la main
 #write.csv(result, "point_jour2.csv")
 
-point_jour <- read.csv("Data/point_jour2.csv", row.names = 1, sep=";")
+point_jour <- read.csv("Data/point_jour.csv", row.names = 1, sep=";")
 
-point_jour_F <- point_jour %>% filter(HF == 'F') %>% 
-  select(-c(J27,J28,J29,J30))
-point_jour_H <- point_jour %>% filter(HF == 'H')
-
-
-# Point par jour de la compétition masculine D1 et D2, 2223 et 2324
-for (i in 1:nrow(point_jour_H)){
-  if (is.na(point_jour_H$J1[i]) == T){
-    point_jour_H$J1[i] <- 0
+# Point par jour
+for (i in 1:nrow(point_jour)){
+  if (is.na(point_jour$J1[i]) == T){
+    point_jour$J1[i] <- 0
   }
   for (j in 8:36){  # j = [J2:J6]
-    if (is.na(point_jour_H[i,j-1])==T){
-      point_jour_H[i,j-1] <- point_jour_H[i,j-2]
-      point_jour_H[i,j] <- point_jour_H[i,j] + point_jour_H[i,j-1]
+    if (is.na(point_jour[i,j-1])==T){
+      point_jour[i,j-1] <- point_jour[i,j-2]
+      point_jour[i,j] <- point_jour[i,j] + point_jour[i,j-1]
     } else {
-      point_jour_H[i,j] <- point_jour_H[i,j] + point_jour_H[i,j-1]
+      point_jour[i,j] <- point_jour[i,j] + point_jour[i,j-1]
     }
   }
-  if(is.na(point_jour_H$J30[i])==T){
-    point_jour_H$J30[i] <- point_jour_H$J25[i]
-  }
-  
-}
-
-# Point par jour de la compétition féminine D1 et D2, 2223 et 2324
-for (i in 1:nrow(point_jour_F)){
-  if (is.na(point_jour_F$J1[i]) == T){
-    point_jour_F$J1[i] <- 0
-  }
-  for (j in 8:32){  # j = [J2:J26]
-    if (is.na(point_jour_F[i,j-1])==T){
-      point_jour_F[i,j-1] <- point_jour_F[i,j-2]
-      point_jour_F[i,j] <- point_jour_F[i,j] + point_jour_F[i,j-1]
-    } else {
-      point_jour_F[i,j] <- point_jour_F[i,j] + point_jour_F[i,j-1]
-    }
-  }
-  if(is.na(point_jour_F$J26[i])==T){
-    point_jour_F$J26[i] <- point_jour_F$J25[i]
+  if(is.na(point_jour$J30[i])==T){
+    point_jour$J30[i] <- point_jour$J25[i]
   }
   
 }
 
 
-point_jour_F$saison <- factor(point_jour_F$saison)
-point_jour_F$division <- factor(point_jour_F$division)
+point_jour$saison <- factor(point_jour$saison)
+point_jour$division <- factor(point_jour$division)
 
-point_jour_H$saison <- factor(point_jour_H$saison)
-point_jour_H$division <- factor(point_jour_H$division)
 
-write.csv(point_jour_F, "point_jour_F.csv")
-write.csv(point_jour_H, "point_jour_H.csv")
+##### Evolution difference
 
-##### Evolution difference Femme
-
-summary_df_F <- point_jour_F %>% 
+summary_df <- point_jour %>% 
+  filter(HF == "F") %>% 
   select(-c("match_joue", "total_point")) %>% 
   group_by(saison, division) %>%
   summarise(across(where(is.numeric), list(Max = max, 
@@ -351,33 +323,10 @@ summary_df_F <- point_jour_F %>%
                names_pattern = "(.*)_(.*)") %>%  
   mutate (Diff = Max - Min)
 
-summary_df_F$Jour <- factor(summary_df_F$Jour, 
-                          levels = unique(summary_df_F$Jour[order(as.numeric(str_extract(summary_df_F$Jour, "\\d+")))]))
+summary_df$Jour <- factor(summary_df$Jour, 
+                          levels = unique(summary_df$Jour[order(as.numeric(str_extract(summary_df$Jour, "\\d+")))]))
 
-ggplot(summary_df_F, aes(x = Jour, group = interaction(saison, division))) +
-  geom_line(aes(y = Diff, color = interaction(saison, division))) +
-  labs(title = "Évolution dfférence de points entre premier et dernier",
-       x = "Journées", y = "Ecarts", color = "Saison-Division") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-#### Evolution difference Homme
-
-summary_df_H <- point_jour_H %>% 
-  select(-c("match_joue", "total_point")) %>% 
-  group_by(saison, division) %>%
-  summarise(across(where(is.numeric), list(Max = max, 
-                                           Min = min), 
-                   .names = "{.col}_{.fn}")) %>%
-  pivot_longer(cols = -c(saison, division), 
-               names_to = c("Jour", ".value"), 
-               names_pattern = "(.*)_(.*)") %>%  
-  mutate (Diff = Max - Min)
-
-summary_df_H$Jour <- factor(summary_df_H$Jour, 
-                          levels = unique(summary_df_H$Jour[order(as.numeric(str_extract(summary_df_H$Jour, "\\d+")))]))
-
-ggplot(summary_df_H, aes(x = Jour, group = interaction(saison, division))) +
+ggplot(summary_df, aes(x = Jour, group = interaction(saison, division))) +
   geom_line(aes(y = Diff, color = interaction(saison, division))) +
   labs(title = "Évolution dfférence de points entre premier et dernier",
        x = "Journées", y = "Ecarts", color = "Saison-Division") +
@@ -385,88 +334,21 @@ ggplot(summary_df_H, aes(x = Jour, group = interaction(saison, division))) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
-###### Ajout variable diff-classement ######
+###### Variable diff-classement ######
 
-data_mod1 <- read.csv("Data/data_mod1_j.csv")
-point_jour_F <- read.csv("point_jour_F.csv", row.names = 1)
-point_jour_F$HF <- 'F'
-point_jour_F$J0 <- 0
-point_jour_F <- point_jour_F %>% relocate('J0', .after = 'total_point')
-point_jour_H <- read.csv("point_jour_H.csv", row.names = 1)
-point_jour_H$J0 <- 0
-point_jour_H <- point_jour_H %>% relocate('J0', .after = 'total_point')
-
-for (j in 32:7){
-  point_jour_F[,j] <- point_jour_F[,j-1]
-}
+point_jour$J0 <- 0
+point_jour <- point_jour %>% relocate('J0', .after = 'total_point')
 
 for (j in 37:8){
-  point_jour_H[,j] <- point_jour_H[,j-1]
+  point_jour[,j] <- point_jour[,j-1]
 }
 
-point_jour_F <- point_jour_F %>%
+point_jour <- point_jour %>%
   select(-J0) %>% 
   pivot_longer(cols = starts_with("J"), names_to = "journee", values_to = "points") %>%
   mutate(journee = toupper(journee))
 
-point_jour_H <- point_jour_H %>%
-  select(-J0) %>% 
-  pivot_longer(cols = starts_with("J"), names_to = "journee", values_to = "points") %>%
-  mutate(journee = toupper(journee))
-
-
-data_mod1 <- data_mod1 %>% 
-  select(-c(points_classement, points_opp, diff_classement))
-
-data_mod1 <- data_mod1 %>% 
-  mutate(club_recevant = case_when(
-    club_recevant == "PARIS 92" ~ "PARIS",
-    club_recevant == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
-    club_recevant == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
-    club_recevant == "LE POUZIN HB 07" ~ "LE POUZIN HB",
-    club_recevant == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
-    club_recevant == "LIMOGES HAND 87" ~ "LIMOGES HAND",
-    club_recevant == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
-    club_recevant == "NANCY HANDBALL" ~ "NANCY METROPOLE",
-    club_recevant == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
-    TRUE ~ club_recevant
-  ))
-
-data_mod1 <- data_mod1 %>% 
-  mutate(club_visiteur = case_when(
-    club_visiteur == "PARIS 92" ~ "PARIS",
-    club_visiteur == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
-    club_visiteur == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
-    club_visiteur == "LE POUZIN HB 07" ~ "LE POUZIN HB",
-    club_visiteur == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
-    club_visiteur == "LIMOGES HAND 87" ~ "LIMOGES HAND",
-    club_visiteur == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
-    club_visiteur == "NANCY HANDBALL" ~ "NANCY METROPOLE",
-    club_visiteur == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
-    TRUE ~ club_visiteur
-  ))
-
-point_jour_final <- bind_rows(point_jour_F, point_jour_H)
-#write.csv(point_jour_final, "point_jour_final.csv")
-
-data_mod1 <- data_mod1 %>% 
-  left_join(point_jour_final, by = c("HF","division","saison", "journee","club_recevant"="club")) %>% 
-  mutate(points_recevant = points) %>% 
-  select(-c(match_joue, total_point, points))
-
-data_mod1 <- data_mod1 %>% 
-  left_join(point_jour_final, by = c("HF","division","saison", "journee","club_visiteur"="club")) %>% 
-  mutate(points_visiteur = points) %>% 
-  select(-c(match_joue, total_point, points))
-
-data_mod1 <- data_mod1 %>% 
-  mutate (diff_point = points_recevant - points_visiteur)
-
-data_mod1$diff_point_norm <- scale(data_mod1$diff_point)
-
-data_mod1$diff_point_norm[,1]
-
-#write.csv(data_mod1, "data_mod1_jour_point.csv")
+#write.csv(point_jour_final, "point_jour.csv")
 
 ####### normaliser diff point par jour #######
 
