@@ -62,7 +62,8 @@ data_mod1 <- data %>%
               any(Temps_Sec >= 57 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "v"),
               1, 
               0
-              )
+              ),
+            .groups = "drop"
             ) %>%
   filter(abs(score_recevant_59_min - score_visiteur_59_min) <= 3) %>% 
   pivot_longer(
@@ -123,7 +124,8 @@ data_mod1 <- data %>%
       grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
     )
   ) %>% 
-  select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min))
+  select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min)) %>% 
+  ungroup()
 
 # One ne garde que l'équipe recevante 
 data_mod1 <- data_mod1 %>%
@@ -149,6 +151,8 @@ data_mod1$HF <- factor(data_mod1$HF)
 data_mod1$DM <- factor(data_mod1$DM)
 data_mod1$DM_adverse <- factor(data_mod1$DM_adverse)
 data_mod1$club_recevant <- factor(data_mod1$club_recevant)
+data_mod1$saison <- factor(data_mod1$saison)
+data_mod1$division <- factor(data_mod1$division)
 ```
 
 # Mise à jour nom 
@@ -206,7 +210,7 @@ data_mod1 <- data_mod1 %>%
 ```
 
 
-# Ajout de la variable classement
+# Ajout de la variable différence de point
 
 ```{r}
 diff_norme <- read.csv("../Data/data_diff_point_norme.csv", row.names = 1)
@@ -215,9 +219,28 @@ diff_norme$saison <- factor(diff_norme$saison)
 data_mod1 <- data_mod1 %>% 
   left_join(diff_norme, by = join_by(code_rencontre, journee, HF, division, saison)) %>% 
   drop_na()
+
+data_mod1$abs_diff_point_norm <- abs(data_mod1$diff_point_norm)
+clustering <- kmeans(data_mod1$abs_diff_point_norm, centers = 3)
+data_mod1$group_diff_point <- factor(clustering$cluster, levels = c(3,1,2))
+
+table(data_mod1$group_diff_point)
+
+ggplot(data_mod1, aes(x = ecart_classement, y = abs_diff_point_norm, fill = group_diff_point)) +
+  geom_boxplot() +
+  labs(title = "Répartition des groupes créés", x = "Groupes", y = "Valeurs de A") +
+  theme_minimal()
+
+data_mod1 <- data_mod1 %>% 
+  mutate(ecart_classement = case_when(
+    group_diff_point == 1 ~ "moyen",
+    group_diff_point == 2 ~ "eleve",
+    group_diff_point == 3 ~ "faible"
+  ))
+
+data_mod1$ecart_classement <- factor(data_mod1$ecart_classement, levels = c("faible","moyen","eleve"))
 ```
 
-NA dus à l'absence de certaines fdm en D1H_2021 et D2H_2021
 
 # Analyse descriptive
 
@@ -271,29 +294,47 @@ ggplot(data.frame(Var = names(table(data_mod1$statut_59_min)),
   scale_fill_manual(values = c("brown1", "grey", "lightgreen")) +
   theme_minimal() +
   theme(legend.position = "none")
+
+# Graphique répartition écart de classement
+
+ggplot(data.frame(Var = factor(names(table(data_mod1$ecart_classement)), levels = c("faible", "moyen", "eleve")), 
+                  Freq = as.numeric(table(data_mod1$ecart_classement))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution ecart classement", x = "Ecart classement", y = "Fréquence") +
+  scale_fill_manual(values = c("brown1", "grey", "lightgreen")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+# Contrastes
+
+```{r}
+contrasts(data_mod1$ecart_classement) <- contr.sum(nlevels(data_mod1$ecart_classement))
 ```
 
 # Modèle global
 
 ```{r}
-mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + diff_point_norm, data = data_mod1, family = "binomial")
+data_filtre <- data_mod1 %>% filter(HF == "F")
+
+mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, data = data_filtre, family = "binomial")
 #summary(mod1)
 
 mod_final <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
 mod_final
-# coefficients <- coef(mod_final)
-# 
-# proba <- logit_to_prob(coefficients)
-# print(proba)
+
 ```
+
+Il y a 76% de chances qu'il y ait un effet positif dans la dernière minute du jeu si l'équipe recevant prend un tm, l'équipe adverse n'en prend pas et qu'il y a une différence de point normée de 1 à la 59ème minute.
 
 # Modèle égalité
 
 ```{r}
-data_mod1_egalite <- data_mod1 %>% 
+data_mod1_egalite <- data_filtre %>% 
   filter(statut_59_min == 0)
 
-mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + diff_point_norm, data = data_mod1_egalite, family = "binomial")
+mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + ecart_classement, data = data_mod1_egalite, family = "binomial")
 #summary(mod1)
 
 mod_final_egalite <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
@@ -307,10 +348,10 @@ mod_final_egalite
 # Modèle perdant
 
 ```{r}
-data_mod1_perdant <- data_mod1 %>% 
+data_mod1_perdant <- data_filtre %>% 
   filter(statut_59_min == -1)
 
-mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + diff_point_norm, data = data_mod1_perdant, family = "binomial")
+mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + ecart_classement, data = data_mod1_perdant, family = "binomial")
 #summary(mod1)
 
 mod_final_perdant <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
@@ -324,10 +365,10 @@ mod_final_perdant
 # Modèle gagnant
 
 ```{r}
-data_mod1_gagnant <- data_mod1 %>% 
+data_mod1_gagnant <- data_filtre %>% 
   filter(statut_59_min == 1)
 
-mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + diff_point_norm, data = data_mod1_gagnant, family = "binomial")
+mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + ecart_classement, data = data_mod1_gagnant, family = "binomial")
 #summary(mod1)
 
 mod_final_gagnant <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")

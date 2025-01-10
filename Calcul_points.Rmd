@@ -21,7 +21,7 @@ library(tidyverse)
 # Classement par journée
 
 ```{r}
-df <- read.csv("df_pdfs.csv")
+df <- read.csv("Data/df_pdfs.csv")
 df <- df %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
   mutate(
@@ -128,7 +128,7 @@ for (i in 1:nrow(result)){
 # Récupérer le résultat point par jour
 
 ```{r}
-#write.csv(result, "point_jour.csv")
+#write.csv(result, "point_jour_bis.csv")
 ```
 NA dû à l'absence de certaine feuille de match.
 Fichier complété à la main.
@@ -136,142 +136,51 @@ Fichier complété à la main.
 
 ```{r}
 point_jour <- read.csv("Data/point_jour.csv", row.names = 1, sep=";")
-
-point_jour_F <- point_jour %>% filter(HF == 'F') %>% 
-  select(-c(J27,J28,J29,J30))
-point_jour_H <- point_jour %>% filter(HF == 'H')
 ```
 
-# Compétition féminine
 
 ```{r}
-for (i in 1:nrow(point_jour_F)){
-  if (is.na(point_jour_F$J1[i]) == T){
-    point_jour_F$J1[i] <- 0
-  }
-  for (j in 8:32){  # j = [J2:J26]
-    if (is.na(point_jour_F[i,j-1])==T){
-      point_jour_F[i,j-1] <- point_jour_F[i,j-2]
-      point_jour_F[i,j] <- point_jour_F[i,j] + point_jour_F[i,j-1]
-    } else {
-      point_jour_F[i,j] <- point_jour_F[i,j] + point_jour_F[i,j-1]
-    }
-  }
-  if(is.na(point_jour_F$J26[i])==T){
-    point_jour_F$J26[i] <- point_jour_F$J25[i]
-  }
-}
-
-point_jour_F$saison <- factor(point_jour_F$saison)
-point_jour_F$division <- factor(point_jour_F$division)
-```
-
-# Compétition masculine
-
-```{r}
-for (i in 1:nrow(point_jour_H)){
-  if (is.na(point_jour_H$J1[i]) == T){
-    point_jour_H$J1[i] <- 0
+for (i in 1:nrow(point_jour)){
+  if (is.na(point_jour$J1[i]) == T){
+    point_jour$J1[i] <- 0
   }
   for (j in 8:36){  # j = [J2:J6]
-    if (is.na(point_jour_H[i,j-1])==T){
-      point_jour_H[i,j-1] <- point_jour_H[i,j-2]
-      point_jour_H[i,j] <- point_jour_H[i,j] + point_jour_H[i,j-1]
+    if (is.na(point_jour[i,j-1])==T){
+      point_jour[i,j-1] <- point_jour[i,j-2]
+      point_jour[i,j] <- point_jour[i,j] + point_jour[i,j-1]
     } else {
-      point_jour_H[i,j] <- point_jour_H[i,j] + point_jour_H[i,j-1]
+      point_jour[i,j] <- point_jour[i,j] + point_jour[i,j-1]
     }
   }
-  if(is.na(point_jour_H$J30[i])==T){
-    point_jour_H$J30[i] <- point_jour_H$J25[i]
+  if(is.na(point_jour$J30[i])==T){
+    point_jour$J30[i] <- point_jour$J25[i]
   }
+  
 }
 
-point_jour_H$saison <- factor(point_jour_H$saison)
-point_jour_H$division <- factor(point_jour_H$division)
+point_jour$saison <- factor(point_jour$saison)
+point_jour$division <- factor(point_jour$division)
 ```
 
-# Récupérer le résultat par genre
-
-```{r}
-write.csv(point_jour_F, "point_jour_F.csv")
-write.csv(point_jour_H, "point_jour_H.csv")
-```
 
 # Ajout variable diff_point
 
 ```{r}
-data_mod1 <- read.csv("Data/data_mod1_j.csv")
-point_jour_F <- read.csv("Data/point_jour_F.csv", row.names = 1)
-point_jour_F$HF <- 'F'
-point_jour_F$J0 <- 0
-point_jour_F <- point_jour_F %>% relocate('J0', .after = 'total_point')
-point_jour_H <- read.csv("Data/point_jour_H.csv", row.names = 1)
-point_jour_H$J0 <- 0
-point_jour_H <- point_jour_H %>% relocate('J0', .after = 'total_point')
-
-for (j in 32:7){
-  point_jour_F[,j] <- point_jour_F[,j-1]
-}
+point_jour$J0 <- 0
+point_jour <- point_jour %>% relocate('J0', .after = 'total_point')
 
 for (j in 37:8){
-  point_jour_H[,j] <- point_jour_H[,j-1]
+  point_jour[,j] <- point_jour[,j-1]
 }
 
-point_jour_F <- point_jour_F %>%
+point_jour <- point_jour %>%
   select(-J0) %>% 
   pivot_longer(cols = starts_with("J"), names_to = "journee", values_to = "points") %>%
   mutate(journee = toupper(journee))
 
-point_jour_H <- point_jour_H %>%
-  select(-J0) %>% 
-  pivot_longer(cols = starts_with("J"), names_to = "journee", values_to = "points") %>%
-  mutate(journee = toupper(journee))
-
-
-data_mod1 <- data_mod1 %>% 
-  select(-c(points_classement, points_opp, diff_classement))
-
-data_mod1 <- data_mod1 %>% 
-  mutate(club_recevant = case_when(
-    club_recevant == "PARIS 92" ~ "PARIS",
-    club_recevant == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
-    club_recevant == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
-    club_recevant == "LE POUZIN HB 07" ~ "LE POUZIN HB",
-    club_recevant == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
-    club_recevant == "LIMOGES HAND 87" ~ "LIMOGES HAND",
-    club_recevant == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
-    club_recevant == "NANCY HANDBALL" ~ "NANCY METROPOLE",
-    club_recevant == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
-    TRUE ~ club_recevant
-  ))
-
-data_mod1 <- data_mod1 %>% 
-  mutate(club_visiteur = case_when(
-    club_visiteur == "PARIS 92" ~ "PARIS",
-    club_visiteur == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
-    club_visiteur == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
-    club_visiteur == "LE POUZIN HB 07" ~ "LE POUZIN HB",
-    club_visiteur == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
-    club_visiteur == "LIMOGES HAND 87" ~ "LIMOGES HAND",
-    club_visiteur == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
-    club_visiteur == "NANCY HANDBALL" ~ "NANCY METROPOLE",
-    club_visiteur == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
-    TRUE ~ club_visiteur
-  ))
-
-point_jour_final <- bind_rows(point_jour_F, point_jour_H)
-#write.csv(point_jour_final, "point_jour_final.csv")
-
-data_mod1 <- data_mod1 %>% 
-  left_join(point_jour_final, by = c("HF","division","saison", "journee","club_recevant"="club")) %>% 
-  mutate(points_recevant = points) %>% 
-  select(-c(match_joue, total_point, points))
-
-data_mod1 <- data_mod1 %>% 
-  left_join(point_jour_final, by = c("HF","division","saison", "journee","club_visiteur"="club")) %>% 
-  mutate(points_visiteur = points) %>% 
-  select(-c(match_joue, total_point, points))
+write.csv(point_jour, "point_jour_final.csv")
 ```
+
 
 # Normaliser point par journée
 
@@ -353,29 +262,56 @@ df <- df %>%
 
 
 df$saison <- factor(df$saison)
+
+point_jour_final <- read.csv("Data/point_jour_final.csv", row.names=1)
 point_jour_final$saison <- factor(point_jour_final$saison)
 
+point_jour_final <- point_jour_final %>%
+  group_by(club) %>%                              # Grouper par club
+  filter(as.numeric(sub("J", "", journee)) <= match_joue) %>% 
+  ungroup() 
+```
 
-df <- df %>% 
+
+# Rajouter diff_point au dataframe
+
+```{r}
+df2 <- df %>% 
   left_join(point_jour_final, by = c("HF","division","saison", "journee","club_recevant"="club")) %>% 
   mutate(points_recevant = points) %>% 
   select(-c(match_joue, total_point, points))
 
-df <- df %>% 
+df2 <- df2 %>% 
   left_join(point_jour_final, by = c("HF","division","saison", "journee","club_visiteur"="club")) %>% 
   mutate(points_visiteur = points) %>% 
   select(-c(match_joue, total_point, points))
 
-df <- df %>% 
+df2 <- df2 %>% 
   mutate (diff_point = points_recevant - points_visiteur)
 
-data_filtre <- df %>%
-  filter(saison == 2223, division == "D1", HF == "F")
+df2 <- df2 %>%
+  group_by(saison, division, HF, journee) %>%
+  mutate(diff_point_norm = as.numeric(scale(diff_point))) %>%
+  ungroup()
 
-data_filtre$journee <- factor(data_filtre$journee, 
-                                levels = unique(data_filtre$journee))
 
-ggplot(data_filtre, aes(x = journee, y = diff_point)) +
+for (i in 1:nrow(df)){
+  df2$diff_point_norm[i] <- ifelse (df2$diff_point[i] == 0, 0, df2$diff_point_norm[i])
+}
+
+df2 <- df2 %>% select(saison, division, HF, journee, code_rencontre, diff_point, diff_point_norm)
+
+write.csv(df2, "Data/data_diff_point_norme.csv")
+
+```
+
+
+# Graphes
+
+```{r}
+df2 %>% 
+  mutate(journee_num = as.numeric(str_extract(journee, "[0-9].*")) )%>% 
+  ggplot(aes(x = journee_num, y = diff_point)) +
   geom_point(color = "blue", size = 2, alpha = 0.7) +  # Points bien alignés
   labs(title = "Nuage de points des différences de points par journée",
        x = "Journée",
@@ -383,17 +319,58 @@ ggplot(data_filtre, aes(x = journee, y = diff_point)) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-df <- df %>% 
-  group_by(saison, division, HF, journee) %>% 
-  mutate(diff_point_norm = scale(diff_point))
 
-for (i in 1:nrow(df)){
-  df$diff_point_norm[i] <- ifelse (df$diff_point[i] == 0, 0, df$diff_point_norm[i])
-}
 
-df <- df %>% select(saison, division, HF, journee, code_rencontre, diff_point_norm)
+df_ref_point <- df2 %>% group_by(saison, division, HF, journee) %>% 
+  summarise(ref_diff_point1 = sd(diff_point, na.rm = TRUE) + mean(diff_point, na.rm = TRUE), .groups = "drop")
 
-#write.csv(df, "data_diff_point_norme.csv")
+df_ref_point$abs_ref_diff_point1 <- abs(df_ref_point$ref_diff_point1)
+df_ref_point <- df_ref_point %>%  na.omit()
+clustering <- kmeans(df_ref_point$abs_ref_diff_point1, centers = 3)
+df_ref_point$group_diff_point <- as.factor(clustering$cluster)
 
+table(df_ref_point$group_diff_point)
+
+df_ref_point %>% 
+  mutate(journee_num = as.numeric(str_extract(journee, "[0-9].*"))) %>% 
+  ggplot(aes(x = journee_num, y = ref_diff_point1, color = group_diff_point)) +  # Ajout de 'color = group_diff_point'
+  geom_point(size = 2, alpha = 0.7) +  # Points bien alignés
+  labs(title = "Nuage de points des différences de points normée par journée",
+       x = "Journée",
+       y = "Différence de points normée") +
+  theme_minimal() +
+  #geom_smooth() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
+
+# Graphe répartition de diff_point_norm
+
+```{r}
+data_mod1 %>% 
+  ggplot(aes(x = diff_point_norm)) +
+  geom_density() +
+  theme_minimal()
+```
+
+# Mettre variable diff_point_norm en catégorielle
+
+```{r}
+data_mod1$abs_diff_point_norm <- abs(data_mod1$diff_point_norm)
+clustering <- kmeans(data_mod1$abs_diff_point_norm, centers = 3)
+data_mod1$group_diff_point <- as.factor(clustering$cluster)
+
+table(data_mod1$group_diff_point)
+
+ggplot(data_mod1, aes(x = group_diff_point, y = abs_diff_point_norm, fill = group_diff_point)) +
+  geom_boxplot() +
+  labs(title = "Répartition des groupes créés", x = "Groupes", y = "Valeurs de A") +
+  theme_minimal()
+```
+
+
+
+
+
+
+
 
