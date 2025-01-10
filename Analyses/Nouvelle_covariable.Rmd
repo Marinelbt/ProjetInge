@@ -1,0 +1,344 @@
+---
+title: "Untitled"
+author: "Marine"
+date: "2025-01-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+---
+title: "Modele 59 min"
+author: "Marine"
+date: "2024-12-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Importations
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(stringr)
+library(broom)
+library(RcmdrMisc)
+library(pls)
+```
+
+# Modèle 1 
+
+## Préparation du jeu de données 
+
+```{r}
+data <- read.table("Data/df_pdfs.csv", header = TRUE, sep = ",")
+
+data <- data %>%
+  separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
+  mutate(
+    score_final_r = as.integer(score_final_r),
+    score_final_v = as.integer(score_final_v)
+  )
+
+data_mod1 <- data %>%
+  group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur, journee, score_final_r, score_final_v, fichier) %>%
+  summarise(temps_proche_59_min = max(Temps_Sec[Temps_Sec < 59 * 60], na.rm = TRUE),
+            statut_59_min_r = first(statut_recevant[Temps_Sec == temps_proche_59_min]),
+            statut_59_min_v = -statut_59_min_r,
+            score_recevant_59_min = first(score_recevant[Temps_Sec == temps_proche_59_min]),
+            score_visiteur_59_min = first(score_visiteur[Temps_Sec == temps_proche_59_min]),
+            TM_derniere_min_r = if_else(
+              any(Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "r"),
+              1, 
+              0
+              ),
+            TM_derniere_min_v = if_else(
+              any(Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "v"),
+              1, 
+              0
+              ),
+            DM_r = if_else(
+              any(Temps_Sec >= 57 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "r"),
+              1, 
+              0
+              ),
+            DM_v = if_else(
+              any(Temps_Sec >= 57 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "v"),
+              1, 
+              0
+              ),
+            score_TM_r = if_else(
+              TM_derniere_min_r == 1 ,
+              first(score_recevant[Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "r"]),
+              NA_integer_ 
+              ),
+            score_TM_v = if_else(
+              TM_derniere_min_r == 1,
+              first(score_visiteur[Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "r"]),
+              NA_integer_ 
+              ),
+            score_TM_adverse_r = if_else(
+              TM_derniere_min_v == 1 ,
+              first(score_recevant[Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "v"]),
+              NA_integer_ 
+              ),
+            score_TM_adverse_v = if_else(
+              TM_derniere_min_v == 1,
+              first(score_visiteur[Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "v"]),
+              NA_integer_ 
+              )
+            ) %>%
+  filter(abs(score_recevant_59_min - score_visiteur_59_min) <= 3) %>% 
+  pivot_longer(
+    cols = c(statut_59_min_r, statut_59_min_v), 
+    names_to = "equipe", 
+    values_to = "statut_59_min"
+  ) %>%
+  mutate(
+    equipe = case_when(
+      equipe == "statut_59_min_r" ~ "R",
+      equipe == "statut_59_min_v" ~ "V"
+    ),
+    statut_final = case_when(
+      equipe == "R" & score_final_r > score_final_v ~ 1,
+      equipe == "V" & score_final_v > score_final_r ~ 1,
+      score_final_v == score_final_r ~ 0,
+      equipe == "R" & score_final_r < score_final_v ~ -1,
+      equipe == "V" & score_final_v < score_final_r ~ -1,
+    ),
+    effet_positif = case_when(
+      statut_59_min == -1 & (statut_final == 0 | statut_final == 1) ~ 1,
+      statut_59_min == 1 & statut_final == 1 ~ 1,
+      statut_59_min == 0 & statut_final == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    TM_derniere_min = case_when(
+      equipe == "R" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "V" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    TM_derniere_min_adverse = case_when(
+      equipe == "V" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "R" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    HF = case_when(
+      grepl("D1F", fichier, ignore.case = TRUE) | grepl("D2F", fichier, ignore.case = TRUE) ~ "F",
+      TRUE ~ "H"
+    ),
+     DM = case_when(
+      equipe == "R" & DM_r == 1 ~ 1,
+      equipe == "V" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    DM_adverse = case_when(
+      equipe == "V" & DM_r == 1 ~ 1,
+      equipe == "R" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    division = case_when(
+      grepl("D1", fichier, ignore.case = TRUE) ~ "D1",
+      grepl("D2", fichier, ignore.case = TRUE) ~ "D2"
+    ),
+    saison = case_when(
+      grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
+      grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+    ),
+    ecart_TM_derniere_minute = abs(score_TM_r - score_TM_v),
+    ecart_TM_derniere_minute_adverse = abs(score_TM_adverse_r - score_TM_adverse_v),
+  ) %>% 
+  select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min))
+
+# One ne garde que l'équipe recevante 
+data_mod1 <- data_mod1 %>%
+  filter(equipe == "R") %>% 
+  filter(statut_59_min != 0 | statut_final != 0)
+
+```
+
+```{r}
+data_mod1$effet_positif <- as.factor(data_mod1$effet_positif)
+data_mod1$TM_derniere_min <- as.factor(data_mod1$TM_derniere_min)
+data_mod1$TM_derniere_min_adverse <- as.factor(data_mod1$TM_derniere_min_adverse)
+data_mod1$HF <- as.factor(data_mod1$HF)
+data_mod1$equipe <- as.factor(data_mod1$equipe)
+data_mod1$DM_adverse <- as.factor(data_mod1$DM_adverse)
+data_mod1$DM <- as.factor(data_mod1$DM)
+data_mod1$statut_59_min <- as.factor(data_mod1$statut_59_min)
+```
+
+```{r}
+point_jour_final <- read.csv("../Data/point_jour_final.csv", row.names = 1)
+point_jour_final$saison <- factor(point_jour_final$saison)
+
+data_mod1 <- data_mod1 %>% 
+  mutate(club_recevant = case_when(
+    club_recevant == "PARIS 92" ~ "PARIS",
+    club_recevant == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
+    club_recevant == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
+    club_recevant == "LE POUZIN HB 07" ~ "LE POUZIN HB",
+    club_recevant == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
+    club_recevant == "LIMOGES HAND 87" ~ "LIMOGES HAND",
+    club_recevant == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
+    club_recevant == "NANCY HANDBALL" ~ "NANCY METROPOLE",
+    club_recevant == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
+    TRUE ~ club_recevant
+  ))
+
+data_mod1 <- data_mod1 %>% 
+  mutate(club_visiteur = case_when(
+    club_visiteur == "PARIS 92" ~ "PARIS",
+    club_visiteur == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
+    club_visiteur == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
+    club_visiteur == "LE POUZIN HB 07" ~ "LE POUZIN HB",
+    club_visiteur == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
+    club_visiteur == "LIMOGES HAND 87" ~ "LIMOGES HAND",
+    club_visiteur == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
+    club_visiteur == "NANCY HANDBALL" ~ "NANCY METROPOLE",
+    club_visiteur == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
+    TRUE ~ club_visiteur
+  ))
+
+data_mod1 <- data_mod1 %>% 
+  left_join(point_jour_final, by = c("HF","division","saison", "journee","club_recevant"="club")) %>% 
+  mutate(points_recevant = points) %>% 
+  select(-c(match_joue, total_point, points))
+
+data_mod1 <- data_mod1 %>% 
+  left_join(point_jour_final, by = c("HF","division","saison", "journee","club_visiteur"="club")) %>% 
+  mutate(points_visiteur = points) %>% 
+  select(-c(match_joue, total_point, points))
+
+data_mod1 <- data_mod1 %>% 
+  mutate (diff_point = points_recevant - points_visiteur)
+
+data_mod1$diff_point_norm <- scale(data_mod1$diff_point)
+```
+
+
+
+## distribution des variables
+
+```{r}
+
+# Graphique pour effet_positif
+ggplot(data.frame(Var = names(table(data_mod1$effet_positif)), 
+                  Freq = as.numeric(table(data_mod1$effet_positif))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de effet_positif", x = "Effet positif", y = "Fréquence") +
+  scale_fill_manual(values = c("red", "green3")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour TM_derniere_min
+ggplot(data.frame(Var = names(table(data_mod1$TM_derniere_min)), 
+                  Freq = as.numeric(table(data_mod1$TM_derniere_min))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de TM_derniere_min", x = "Temps mort à la dernière minute", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour TM_derniere_min_adverse
+ggplot(data.frame(Var = names(table(data_mod1$TM_derniere_min_adverse)), 
+                  Freq = as.numeric(table(data_mod1$TM_derniere_min_adverse))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de TM_derniere_min_adverse", x = "Temps mort à la dernière minute de l'adversaire", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour HF
+ggplot(data.frame(Var = names(table(data_mod1$HF)), 
+                  Freq = as.numeric(table(data_mod1$HF))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de HF", x = "Hommes ou femmes", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour DM
+ggplot(data.frame(Var = names(table(data_mod1$DM)), 
+                  Freq = as.numeric(table(data_mod1$DM))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de DM", x = "2min", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Graphique pour DM_adverse
+ggplot(data.frame(Var = names(table(data_mod1$DM_adverse)), 
+                  Freq = as.numeric(table(data_mod1$DM_adverse))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution de DM_adverse", x = "2min de l'adversaire", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+ggplot(data.frame(Var = names(table(data_mod1$statut_59_min)), 
+                  Freq = as.numeric(table(data_mod1$statut_59_min))), aes(x = Var, y = Freq, fill = Var)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = Freq), vjust = -0.5) +
+  labs(title = "Distribution du Statut", x = "Statut", y = "Fréquence") +
+  scale_fill_manual(values = c("skyblue", "orange", "lightgreen")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+
+## Modèle 1
+
+```{r}
+mod0 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_mod1, family = "binomial")
+summary(mod0)
+
+stepwise(mod0, direction="forward/backward", criterion="AIC")
+```
+
+
+## Un modèle pour chaque statut à 59 min
+
+```{r}
+data_egalite <- data_mod1 %>% 
+  filter(statut_59_min == "0")
+
+mod_egalite2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_egalite, family = "binomial")
+summary(mod_egalite2)
+
+stepwise(mod_egalite2, direction="forward/backward", criterion="AIC")
+```
+
+
+```{r}
+data_perdant <- data_mod1 %>% 
+  filter(statut_59_min == "-1")
+
+mod_perdant2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_perdant, family = "binomial")
+summary(mod_perdant2)
+
+stepwise(mod_perdant2, direction="forward/backward", criterion="AIC")
+```
+
+```{r}
+data_gagnant <- data_mod1 %>% 
+  filter(statut_59_min == "1")
+
+mod_gagnant2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_gagnant, family = "binomial")
+summary(mod_gagnant2)
+
+stepwise(mod_gagnant2, direction="forward/backward", criterion="AIC")
+```

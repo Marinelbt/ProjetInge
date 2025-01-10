@@ -16,10 +16,13 @@ library(dplyr)
 library(ggpubr)
 library(tidyr)
 library(stringr)
+library(knitr)
+library(kableExtra)
+
 ```
 
 ```{r}
-df <- read.csv("../Data/df_pdfs.csv", stringsAsFactors = T)
+df <- read.csv("Data/df_pdfs.csv", stringsAsFactors = T)
 
 colnames(df)
 ```
@@ -60,57 +63,307 @@ data$statut_action <- with(data,
 ```
 
 
-# Diagramme nombre de but par période et par statut
+# Diagramme nombre de TM par période et par statut
 ```{r}
-p1 <- ggplot(data = data[data$action == "Tem",], aes(x=as.factor(periode), fill = statut_action)) +
+
+data_pourcentage <- data[data$action == "Tem", ] %>%
+  group_by(periode) %>%
+  summarise(total_periode = n()) %>%
+  mutate(pourcentage = total_periode / sum(total_periode) * 100)
+
+
+if (!"pourcentage" %in% colnames(data)) {
+  data <- data %>%
+    left_join(data_pourcentage, by = "periode")
+}
+
+p1 <- ggplot(data = data[data$action == "Tem", ], aes(x = as.factor(periode), fill = statut_action)) +
   geom_bar() +
+  geom_text(
+    aes(
+      x = as.factor(periode),
+      y = ..count..,  # Utilise le nombre de temps-morts pour positionner les labels
+      label = paste0(round(pourcentage, 1), "%")  # Affiche les pourcentages
+    ),
+    stat = "count",  # Statistique de comptage pour les barres
+    inherit.aes = FALSE,  # Empêche l'héritage des esthétiques globales
+    vjust = -0.5,  # Place le texte au-dessus des barres
+    color = "black",
+    size = 3
+  ) +
+  geom_vline(
+    xintercept = 3.5,  # Position entre la période 3 et la période 4 (ligne verticale entre 3 et 4)
+    linetype = "dashed",  # Style de la ligne (pointillée)
+    color = "black",  # Couleur de la ligne
+    size = 1  # Taille de la ligne
+  ) +
   labs(
-    title = "Nombre de temps-mort par période",
-    x = "Période (1 période = 10 min)",
-    y = "Nombre de Temps-Mort",
+    title = "Nombre de temps-morts par période",
+    x = "Périodes (1 période = 10 min)",
+    y = "Nombre de Temps-Morts",
     fill = "Statut équipe"
   ) +
   scale_fill_manual(
     values = c("-1" = "indianred", "0" = "gray", "1" = "darkolivegreen3"),
-    labels = c("-1"="Perd", "0"="Egalité","1"="Gagne")
+    labels = c("-1" = "Perd", "0" = "Égalité", "1" = "Gagne")
   ) +
   theme_minimal()
 
-p2 <- data %>% filter(Temps_Sec >= 59*60) %>% 
-  ggplot(aes(x=as.factor(periode), fill = statut_action)) +
-  geom_bar() +
+
+p2 <- data[data$action == "Tem", ] %>%
+  filter(Temps_Sec >= 59 * 60) %>%
+  ggplot(aes(x = as.factor(periode), fill = statut_action)) +
+  geom_bar() +  # Garde les barres en nombre total
+  geom_text(
+    stat = "count",
+    aes(
+      label = scales::percent(..count.. / tapply(..count.., ..x.., sum)[as.character(..x..)], accuracy = 1)
+    ),
+    position = position_stack(vjust = 0.5),  # Empile les labels au centre des segments
+    color = "white",
+    size = 3
+  ) +
   labs(
-    title = "Nombre de temps-\nmort à la dernière \nminute",
-    x = "Période 59min à 60min (fin)",
-    y = "Nombre de Temps-Mort",
+    title = "Nombre de temps-\nmorts à la dernière \nminute",
+    x = "59 à 60min (dernière minute)",
+    y = "Nombre de Temps-Morts",
     fill = "Statut équipe"
   ) +
   scale_fill_manual(
     values = c("-1" = "indianred", "0" = "gray", "1" = "darkolivegreen3"),
-    labels = c("-1"="Perd", "0"="Egalité","1"="Gagne")
+    labels = c("-1" = "Perd", "0" = "Égalité", "1" = "Gagne")
   ) +
   theme_minimal()
 
-ggarrange(p1,p2, widths = c(2,1))
+ggarrange(p1, p2, widths = c(2, 1))
+
+
+
+```
+ 
+```{r}
+nb_tm_derniere_minute
+
+nb_tm <- data %>% 
+  filter(action == "Tem") %>%
+  nrow()
+
+nb_tm 
+
+nb_tm_derniere_minute * 100 / nb_tm
+
 ```
 
-# Pourcentage de tm pris à la dernière minute ayant mené à un but
-```{r}
-count_levels <- data %>%
-  filter(Temps_Sec >= 59*60, but_1min_apres_temps_mort != "") %>% 
-  group_by(but_1min_apres_temps_mort) %>%
-  summarise(count = n())
+#distribution du nombre de temps-morts selon différence de points 
 
-taux_but_ap_tm <- count_levels$count[2] / (count_levels$count[2]+count_levels$count[1])
+```{r}
+
+data1 <- data %>% 
+  mutate(difference_points = abs(score_recevant - score_visiteur))
+
+p3 <- ggplot(data = data1[data1$action == "Tem", ], aes(x = as.factor(difference_points), fill = as.factor(difference_points))) +
+  geom_bar(fill = "skyblue") +
+  geom_text(
+    aes(
+      label = scales::percent(..count.. / sum(..count..), accuracy = 1)  
+    ),
+    stat = "count",  
+    position = position_stack(vjust = 0.5),  
+    color = "black", 
+    size = 3  
+  ) +
+  labs(
+    title = "Nombre de temps-morts par écarts de points",
+    x = "Écart de points",
+    y = "Nombre de Temps-Morts"
+  ) +
+  theme_minimal()
+
+
+p3
+
+p3bis <- p3 <- ggplot(data = data1[data1$action == "But", ], aes(x = as.factor(difference_points), fill = as.factor(difference_points))) +
+  geom_bar(fill = "skyblue") +
+  geom_text(
+    aes(
+      label = scales::percent(..count.. / sum(..count..), accuracy = 1)  
+    ),
+    stat = "count",  
+    position = position_stack(vjust = 0.5),  
+    color = "black", 
+    size = 3  
+  ) +
+  labs(
+    title = "Distribution des écarts de points",
+    x = "Écart de points",
+    y = "Fréquence"
+  ) +
+  theme_minimal()
+
+
+p3bis
+
+distribution_ecarts <- data1 %>%
+  filter(action == "But") %>% 
+  group_by(difference_points) %>%
+  summarise(count = n()) %>%
+  mutate(
+    percentage = count / sum(count),
+    type = "fréqence des écarts de points "
+  )
+
+distribution_temps_morts <- data1 %>%
+  filter(action == "Tem") %>%
+  group_by(difference_points) %>%
+  summarise(count = n()) %>%
+  mutate(
+    percentage = count / sum(count),
+    type = "fréquence des prises de temps-morts"
+  )
+
+combined_data1 <- bind_rows(distribution_ecarts, distribution_temps_morts)
+
+p_combined <- ggplot(combined_data1, aes(x = as.factor(difference_points), y = percentage, fill = type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(
+    title = "Distribution des écarts de points et des temps-morts",
+    x = "Écart de points",
+    y = "Fréquence",
+    fill = "Type"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),  # Taille et style du titre
+    axis.title.x = element_text(size = 14),              # Taille du titre de l'axe X
+    axis.title.y = element_text(size = 14),              # Taille du titre de l'axe Y
+    axis.text = element_text(size = 12),                 # Taille des étiquettes des axes
+    legend.title = element_text(size = 14),              # Taille du titre de la légende
+    legend.text = element_text(size = 12),               # Taille des éléments de la légende
+    legend.position = c(0.85, 0.85),                     # Position de la légende (x, y)
+    legend.justification = c(1, 1)                       # Alignement en haut à droite
+  )
+p_combined
+
+
+ks.test((distribution_ecarts$difference_points), (distribution_temps_morts$difference_points))
+
+
 ```
 
-```{r}
-levels_but_tir <- data %>% 
-  group_by(action) %>% 
-  summarise(count=n())
 
-taux_reussite <- levels_but_tir$count[5] / (levels_but_tir$count[5] + levels_but_tir$count[10])
-print(c("Taux de réussite : ",round(taux_reussite,2)))
+#distribution du nombre de temps-morts selon différence de points (dernière minute)
+
+
+```{r}
+
+p4 <- ggplot(data = data1[data1$action == "Tem" & data$Temps_Sec >= 59*60, ], aes(x = as.factor(difference_points))) +
+  geom_bar(fill = "skyblue") +
+  geom_text(
+    aes(
+      label = scales::percent(..count.. / sum(..count..), accuracy = 1)  
+    ),
+    stat = "count",  
+    position = position_stack(vjust = 0.5),  
+    color = "black", 
+    size = 3  
+  ) +
+  geom_vline(
+    xintercept = 4.5,  
+    linetype = "dashed",  
+    color = "black",  
+    size = 1  
+   ) +
+  labs(
+    title = "Nombre de temps-morts pris à la dernière minute par écarts de points",
+    x = "Écart de points",
+    y = "Nombre de Temps-Morts"
+  ) +
+theme_minimal()
+
+p4
+
+
+data2 <- data %>% 
+  filter(Temps_Sec >= 59*60) %>% 
+  mutate(difference_points = abs(score_recevant - score_visiteur))
+
+distribution_ecarts <- data2 %>%
+  filter(action == "But") %>% 
+  group_by(difference_points) %>%
+  summarise(count = n()) %>%
+  mutate(
+    percentage = count / sum(count),
+    type = "fréquence des écarts de points"
+  )
+
+distribution_temps_morts <- data2 %>%
+  filter(action == "Tem") %>%
+  group_by(difference_points) %>%
+  summarise(count = n()) %>%
+  mutate(
+    percentage = count / sum(count),
+    type = "fréquence des prises de temps-morts"
+  )
+
+combined_data <- bind_rows(distribution_ecarts, distribution_temps_morts)
+
+p_combined <- ggplot(combined_data, aes(x = as.factor(difference_points), y = percentage, fill = type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(
+    title = "Distribution des écarts de points et des temps-morts",
+    x = "Écart de points",
+    y = "Pourcentage",
+    fill = "Type"
+  ) +
+  theme_minimal()
+
+p_combined
+
+
+frequence_ecarts <- data2 %>%
+  filter(action == "But") %>% 
+  group_by(difference_points) %>%
+  summarise(
+    total_instances = n()  
+  )
+
+temps_morts_par_ecart <- data2 %>%
+  filter(action == "Tem") %>%  
+  group_by(difference_points) %>%
+  summarise(
+    temps_morts = n()  
+  )
+
+taux_temps_morts <- temps_morts_par_ecart %>%
+  left_join(frequence_ecarts, by = "difference_points") %>%
+  mutate(
+    taux_temps_morts = temps_morts / total_instances  # Taux de prise de temps-morts
+  )
+
+p_taux <- ggplot(taux_temps_morts, aes(x = as.factor(difference_points), y = taux_temps_morts)) +
+  geom_bar(fill = "skyblue", stat = "identity", show.legend = FALSE) +
+  geom_text(
+    aes(label = scales::percent(taux_temps_morts, accuracy = 0.1)), 
+    vjust = -0.5, 
+    size = 3
+  ) +
+    geom_vline(
+    xintercept = 4.5,  
+    linetype = "dashed",  
+    color = "black",  
+    size = 1  
+   ) +
+  labs(
+    title = "Taux de prises de temps-morts par écart de points à la dernière minute du match",
+    x = "Écart de points",
+    y = "Taux de Temps-Morts pris à la derière minute"
+  ) +
+  theme_minimal()
+
+p_taux
+
 
 ```
 
@@ -158,11 +411,13 @@ nb_but_ap <- count_ap$count[count_ap$action == "But"]
 nb_tir_ap <- count_ap$count[count_ap$action == "Tir"]
 taux_but_ap <- round(nb_but_ap / (nb_but_ap + nb_tir_ap)*100,2)
 taux_tir_ap <- round(nb_tir_ap / (nb_but_ap + nb_tir_ap)*100,2)
+
+taux_but_ap
+taux_tir_ap
+
 ```
 
 ```{r}
-library(knitr)
-library(kableExtra)
 
 data2 <- data.frame(
   Category = c("Actions positives", "But", "Actions négatives", "Tir", "Total"),
@@ -180,6 +435,96 @@ data2 %>%
       align = c("l", "c", "c", "c", "c","c")) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>%
   add_header_above(c(" " = 1, "Actions 5min avant un temps_mort" = 2, "Actions 5min après un temps-mort" = 2, "Comparaison" = 1)) %>%
+  footnote(general = "N: Nombre d'attaques")
+
+```
+
+```{r}
+
+count <- data %>% 
+  group_by(action) %>% 
+  summarise(count=n())
+
+nb_but <- count$count[count$action == "But"]
+nb_tir <- count$count[count$action == "Tir"]
+taux_but <- round(nb_but / (nb_but + nb_tir)*100,2)
+taux_tir <- round(nb_tir / (nb_but + nb_tir)*100,2)
+
+data3 <- data.frame(
+  Category = c("Actions positives", "But", "Actions négatives", "Tir", "Total"),
+  N = c("", nb_but, "", nb_tir, nb_but+nb_tir),
+  Pourc = c("", taux_but, "", taux_tir, 100),
+  N_apres_tm = c("", nb_but_ap, "", nb_tir_ap, nb_tir_ap+nb_but_ap),
+  Pourc_apres_tm = c("", taux_but_ap, "", taux_tir_ap, 100),
+  Comparaison = c("", round(taux_but_ap-taux_but,2),"", round(taux_tir_ap-taux_tir,2),0)
+)
+
+data3 %>%
+  kbl(col.names = c("", "N", "%", "N", "%", "différence (%)"),
+      align = c("l", "c", "c", "c", "c","c")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>%
+  add_header_above(c(" " = 1, "Actions pendant toute la durée du match" = 2, "Actions 5min après un temps-mort" = 2, "Comparaison" = 1)) %>%
+  footnote(general = "N: Nombre d'attaques")
+
+```
+
+```{r}
+dt_1min_ap <- data %>%
+  group_by(code_rencontre) %>%
+  mutate(
+    temps_tem = list(Temps_Sec[action == "Tem"])
+  ) %>%
+  unnest(temps_tem) %>%
+  filter(
+    Temps_Sec > temps_tem & Temps_Sec <= temps_tem + 1 * 60 & action != "Tem"
+  ) %>%
+  ungroup()
+
+count_ap1 <- dt_1min_ap %>% 
+  group_by(action) %>% 
+  summarise(count=n())
+
+nb_but_ap1 <- count_ap1$count[count_ap1$action == "But"]
+nb_tir_ap1 <- count_ap1$count[count_ap1$action == "Tir"]
+taux_but_ap1 <- round(nb_but_ap1 / (nb_but_ap1 + nb_tir_ap1)*100,2)
+taux_tir_ap1 <- round(nb_tir_ap1 / (nb_but_ap1 + nb_tir_ap1)*100,2)
+
+dt_1min_av <- data %>%
+  group_by(code_rencontre) %>%
+  mutate(
+    temps_tem = list(Temps_Sec[action == "Tem"])
+  ) %>%
+  unnest(temps_tem) %>% # Transformer les listes en colonnes
+  filter(
+    Temps_Sec < temps_tem & Temps_Sec >= temps_tem - 1 * 60 & action != "Tem"
+  ) %>%
+  ungroup()
+
+count_av1 <- dt_1min_av %>% 
+  group_by(action) %>% 
+  summarise(count=n())
+
+nb_but_av1 <- count_av1$count[count_av1$action == "But"]
+nb_tir_av1 <- count_av1$count[count_av1$action == "Tir"]
+taux_but_av1 <- round(nb_but_av1 / (nb_but_av1 + nb_tir_av1)*100,2)
+taux_tir_av1 <- round(nb_tir_av1 / (nb_but_av1 + nb_tir_av1)*100,2)
+
+data4 <- data.frame(
+  Category = c("Actions positives", "But", "Actions négatives", "Tir", "Total"),
+  N_avant = c("", nb_but_av1, "", nb_tir_av1, nb_but_av1+nb_tir_av1),
+  Pourc_avant = c("", taux_but_av1, "", taux_tir_av1, 100),
+  #Percent_actions_before = c("", 37.7, "", "", 62.3, "", 100),
+  N_apres = c("", nb_but_ap1, "", nb_tir_ap1, nb_tir_ap1+nb_but_ap1),
+  Pourc_apres = c("", taux_but_ap1, "", taux_tir_ap1, 100),
+  #Percent_actions_after = c("", 46.8, "", "", 53.2, "", 100)
+  Comparaison = c("", round(taux_but_ap1-taux_but_av1,2),"", round(taux_tir_ap1-taux_tir_av1,2),0)
+)
+
+data4 %>%
+  kbl(col.names = c("", "N", "%", "N", "%", "ap - av (%)"),
+      align = c("l", "c", "c", "c", "c","c")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>%
+  add_header_above(c(" " = 1, "Actions 1min avant un temps_mort" = 2, "Actions 1min après un temps-mort" = 2, "Comparaison" = 1)) %>%
   footnote(general = "N: Nombre d'attaques")
 
 ```
@@ -209,6 +554,214 @@ score_moyen <- score_moyen_r %>%
 
 ```
 
+#effets positifs 
+
+```{r}
+data <- read.table("Data/df_pdfs.csv", header = TRUE, sep = ",")
+
+data <- data %>%
+  separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
+  mutate(
+    score_final_r = as.integer(score_final_r),
+    score_final_v = as.integer(score_final_v)
+  )
+
+data_mod1 <- data %>%
+  group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur, journee, score_final_r, score_final_v, fichier) %>%
+  summarise(temps_proche_59_min = max(Temps_Sec[Temps_Sec < 59 * 60], na.rm = TRUE),
+            statut_59_min_r = first(statut_recevant[Temps_Sec == temps_proche_59_min]),
+            statut_59_min_v = -statut_59_min_r,
+            score_recevant_59_min = first(score_recevant[Temps_Sec == temps_proche_59_min]),
+            score_visiteur_59_min = first(score_visiteur[Temps_Sec == temps_proche_59_min]),
+            TM_derniere_min_r = if_else(
+              any(Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "r"),
+              1, 
+              0
+              ),
+            TM_derniere_min_v = if_else(
+              any(Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "v"),
+              1, 
+              0
+              ),
+            DM_r = if_else(
+              any(Temps_Sec >= 57 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "r"),
+              1, 
+              0
+              ),
+            DM_v = if_else(
+              any(Temps_Sec >= 57 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "v"),
+              1, 
+              0
+              )
+            ) %>%
+  filter(abs(score_recevant_59_min - score_visiteur_59_min) <= 3) %>% 
+  pivot_longer(
+    cols = c(statut_59_min_r, statut_59_min_v), 
+    names_to = "equipe", 
+    values_to = "statut_59_min"
+  ) %>%
+  mutate(
+    equipe = case_when(
+      equipe == "statut_59_min_r" ~ "R",
+      equipe == "statut_59_min_v" ~ "V"
+    ),
+    statut_final = case_when(
+      equipe == "R" & score_final_r > score_final_v ~ 1,
+      equipe == "V" & score_final_v > score_final_r ~ 1,
+      score_final_v == score_final_r ~ 0,
+      equipe == "R" & score_final_r < score_final_v ~ -1,
+      equipe == "V" & score_final_v < score_final_r ~ -1,
+    ),
+    effet_positif = case_when(
+      statut_59_min == -1 & (statut_final == 0 | statut_final == 1) ~ 1,
+      statut_59_min == 1 & statut_final == 1 ~ 1,
+      statut_59_min == 0 & statut_final == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    TM_derniere_min = case_when(
+      equipe == "R" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "V" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    TM_derniere_min_adverse = case_when(
+      equipe == "V" & TM_derniere_min_r == 1 ~ 1,
+      equipe == "R" & TM_derniere_min_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    HF = case_when(
+      grepl("D1F", fichier, ignore.case = TRUE) | grepl("D2F", fichier, ignore.case = TRUE) ~ "F",
+      TRUE ~ "H"
+    ),
+     DM = case_when(
+      equipe == "R" & DM_r == 1 ~ 1,
+      equipe == "V" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    DM_adverse = case_when(
+      equipe == "V" & DM_r == 1 ~ 1,
+      equipe == "R" & DM_v == 1 ~ 1,
+      TRUE ~ 0
+    ),
+  ) %>% 
+  select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min))
+
+data_TM <- data_mod1 %>% 
+  filter(TM_derniere_min == 1)
+
+data_pasTM <- data_mod1 %>% 
+  filter(TM_derniere_min == 0)
+
+data_effect_TM <- data_TM %>%
+  group_by(statut_59_min, effet_positif) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(statut_59_min) %>%
+  mutate(percentage = count / sum(count) * 100)
+
+data_effect <- data_pasTM %>%
+  group_by(statut_59_min, effet_positif) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(statut_59_min) %>%
+  mutate(percentage = count / sum(count) * 100)
+
+p6 <- ggplot(data = data_effect_TM, aes(x = as.factor(statut_59_min), y = count, fill = as.factor(effet_positif))) +
+  geom_bar(stat = "identity") +
+  geom_text(
+    aes(
+      label = paste0(round(percentage, 1), "%"),
+      y = ifelse(effet_positif == 1, count / 2, cumsum(count))  
+    ),
+    color = "white",
+    size = 4,
+    position = position_stack(vjust = 0.5)
+  ) +
+  scale_x_discrete(
+    labels = c("-1" = "Perd", "0" = "Égalité", "1" = "Gagne")  
+  ) +
+  scale_fill_manual(
+    values = c("0" = "indianred", "1" = "darkolivegreen3"),
+    labels = c("0" = "Non", "1" = "Oui")
+  ) +
+  labs(
+    title = "Effets positifs des temps-morts\n pris à la dernière minute,\nselon le statut à 59 min",
+    x = "Statut à 59 min",
+    y = "Nombre de Temps-Morts \npris à la dernière minute",
+    fill = "Effet positif"
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.01))) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14), 
+    legend.title = element_text(size = 12),           
+    legend.text = element_text(size = 10)           
+  )
+
+p6
+
+
+data_summary <- data_mod1 %>%
+  group_by(statut_59_min, TM_derniere_min) %>%
+  summarise(
+    positif = sum(effet_positif == 1),
+    negatif = sum(effet_positif == 0),
+    .groups = "drop"  # Évite les messages de regroupement
+  ) %>%
+  mutate(
+    total = positif + negatif,  # Calcule le total pour chaque groupe
+    pourcentage_positif = positif / total * 100,  # Calcule le pourcentage positif
+    fleche = case_when(
+      TM_derniere_min == 1 & statut_59_min == -1 ~ " ↑",  # Flèche vers le haut pour -1
+      TM_derniere_min == 1 & statut_59_min %in% c(0, 1) ~ " ↓",  # Flèche vers le bas pour 0 et 1
+      TRUE ~ ""  # Pas de flèche sinon
+    )
+  ) %>%
+  pivot_longer(cols = c(positif, negatif), names_to = "effet", values_to = "count") %>%
+  mutate(
+    label_texte = ifelse(effet == "positif", paste0(round(pourcentage_positif, 1), "%", fleche), "")
+  )
+
+
+# Création du diagramme
+plot <- ggplot(data_summary, aes(x = as.factor(statut_59_min), y = count, fill = effet)) +
+  geom_bar(stat = "identity", position = "stack") +  # Barres empilées
+  scale_fill_manual(values = c("positif" = "darkolivegreen3", "negatif" = "indianred")) +
+  geom_text(
+    data = data_summary %>% filter(effet == "positif"),  # Affiche le texte uniquement pour les barres vertes
+    aes(
+      label = label_texte,
+      y = count / 2  # Positionne le texte au milieu de la barre verte
+    ),
+    color = "black",
+    size = 4,
+    fontface = "bold"
+  ) +
+  facet_wrap(~TM_derniere_min, 
+             labeller = labeller(TM_derniere_min = c(`1` = "Avec prise de\nTemps-Mort", `0` = "Sans prise de\nTemps-Mort"))) +
+  labs(
+    title = "Effets positifs des temps-morts pris à la dernière minute,\nselon le statut à 59 min",
+    x = "Statut à 59 minutes",
+    y = "Effectif",
+    fill = "Effet"
+  ) +
+  scale_x_discrete(labels = c("-1" = "Perd", "0" = "Égalité", "1" = "Gagne")) +  # Remplace les labels sur l'axe X
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12),
+    strip.text = element_text(size = 12, face = "bold")  # Augmente la taille des titres des facettes
+  )
+
+plot
+
+
+
+```
+
+
+
 # Tableau disjonctif entre TM et DM
 
 ```{r}
@@ -224,7 +777,7 @@ print(table_disj_dm)
 print(table_disj_tm)
 ```
 
-Classement par jour
+#Classement par jour
 
 ```{r}
 point_jour <- read.csv("../Data/point_jour.csv", header = T, sep = ";", row.names = 1)
@@ -283,7 +836,7 @@ point_jour_H$division <- factor(point_jour_H$division)
 # write.csv(point_jour_H, "point_jour_H.csv")
 ```
 
-Evolution difference de classement par jour
+#Evolution difference de classement par jour
 
 ```{r}
 ##### Evolution difference Femme
