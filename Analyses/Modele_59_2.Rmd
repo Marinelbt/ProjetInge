@@ -328,10 +328,7 @@ contrasts(data_mod1$ecart_classement) <- contr.sum(nlevels(data_mod1$ecart_class
 ```{r}
 data_filtre <- data_mod1 %>% filter(HF == "F")
 
-mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement +
-              TM_derniere_min:DM_adverse + TM_derniere_min:DM + TM_derniere_min:ecart_classement + 
-              TM_derniere_min_adverse:DM_adverse + TM_derniere_min_adverse:DM + TM_derniere_min_adverse:ecart_classement
-            + TM_derniere_min:TM_derniere_min_adverse, 
+mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, 
             data = data_mod1, family = "binomial")
 summary(mod1)
 
