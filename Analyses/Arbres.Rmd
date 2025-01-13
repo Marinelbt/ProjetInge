@@ -42,29 +42,23 @@ data.test <- testing(data.split)
 
 
 ```{r}
-control_params <- rpart.control(maxdepth = 30, minsplit = 1, cp = 0.002)
-# grid <- expand.grid(
-#   cp = c(0.001, 0.0015, 0.0023, 0.0037, 0.002)
-# )
-# control <- trainControl(method = "cv", number = 5)
-# 
-# model <- train(
-#   effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement,
-#   data = data.train,
-#   method = "rpart",
-#   trControl = control,
-#   tuneGrid = grid,
-# )
-# 
-# print(model)
-# print(model$bestTune)
-# 
-# rpart.plot(model$finalModel)
+set.seed(123)
+ctrl <- trainControl(method = "cv", number = 10)
 
-tree <- rpart(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement,
+# Entraîner l'arbre avec validation croisée
+cv_tree <- train(
+  effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement + statut_59_min, 
+  data = data.train, 
+  method = "rpart",
+  trControl = ctrl
+)
+
+print(cv_tree)
+
+tree <- rpart(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement + statut_59_min,
               data = data.train,
               method = "class",
-              control = control_params)
+              control = rpart.control(maxdepth = 30, minsplit = 1, cp =  cv_tree$bestTune))
 
 
 plotcp(tree)
@@ -72,9 +66,17 @@ printcp(tree)
 
 rpart.plot(tree)
 
-# pdf("arbre.pdf", width = 10, height = 7)
-# rpart.plot(tree)
-# dev.off()
+pdf("arbre_1.pdf", width = 10, height = 7)
+rpart.plot(tree)
+dev.off()
+
+# Prédictions sur les données d'entraînement
+pred_train <- predict(tree, type = "class")
+
+# Calcul du taux de précision
+mean(pred_train == data.train$effet_positif)
+
+confusionMatrix(pred_train, data.train$effet_positif)
 ```
 
 Analyse d'une feuille (0, 0.15, 43%) :
@@ -85,19 +87,40 @@ Cette feuille contient 43% du jeu de données.
 # Arbre gagnant
 
 ```{r}
+set.seed(123)
+data_g <- data_mod1 %>% filter(statut_59_min == -1)
 
-data.split.g <- data_mod1 %>% 
-  filter(statut_59_min == 1) %>% 
-  initial_split(prop = 0.80)
+data.split.g <- initial_split(data_mod1, prop = 0.80)
 data.train.g <- training(data.split.g)
 data.test.g <- testing(data.split.g)
+
+ctrl <- trainControl(method = "cv", number = 10)
+
+# Entraîner l'arbre avec validation croisée
+cv_tree <- train(
+  effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, 
+  data = data.train.g, 
+  method = "rpart",
+  trControl = ctrl
+)
+
+# Résultats de la validation croisée
+print(cv_tree)
 
 tree <- rpart(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement,
               data = data.train.g,
               method = "class",
-              control = rpart.control(maxdepth = 30, minsplit = 1, cp = 0.0000000000000000000000000000001))
+              control = rpart.control(maxdepth = 30, minsplit = 1, cp =  cv_tree$bestTune))
 
-printcp(tree)
+rpart.plot(tree)
+
+# Prédictions sur les données d'entraînement
+pred_train <- predict(tree, newdata = data.test.g, type = "class")
+
+# Calcul du taux de précision
+mean(pred_train == data.test.g$effet_positif)
+
+confusionMatrix(pred_train, data.test.g$effet_positif)
 ```
 
 

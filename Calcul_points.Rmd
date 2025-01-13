@@ -21,7 +21,7 @@ library(tidyverse)
 # Classement par journée
 
 ```{r}
-df <- read.csv("Data/df_pdfs.csv")
+df <- read.csv("df_pdfs_N1.csv")
 df <- df %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
   mutate(
@@ -33,7 +33,7 @@ df <- df %>%
   mutate(
     saison = str_extract(fichier, "\\d{4}"),           
     HF = str_extract(fichier, "[FH]"),              
-    division = str_extract(fichier, "D\\d"),          
+    division = str_extract(fichier, "N\\d"),          
     match_num = str_extract(fichier, "_\\d+_\\d{4}") %>%
       str_extract("^\\d+")
   ) %>% 
@@ -110,6 +110,19 @@ points_par_club <- points_par_club %>%
     club == "E. STRASBOURG SCHILTIGHEIM ALSACE HANDBALL" ~ "STRASBOURG EUROMETROPOLE HB",
     club == "LIMOGES HANDBALL" ~ "LIMOGES",
     club == "LIMOGES HAND" ~ "LIMOGES",
+    club == "ELITE VAL-D'OISE (N" ~ "ELITE VAL-D'OISE",
+    club =="ELITE VAL-D'OISE (N1M)" ~ "ELITE VAL-D'OISE",
+    club == "LORMONT HB (N" ~"LORMONT HB",
+    club == "GRAND POITIERS HANDBALL 86" ~ "GRAND POITIERS HANDBALL",
+    club == "HANDBALL HAZEBROUCK 71" ~ "HANDBALL HAZEBROUCK",
+    club =="SAVIGNY HB 91" ~"SAVIGNY HB",
+    club =="ASSOCIATION SPORTIVE ST-OUEN-L'AUMONE HANDBALL" ~ "ASSOCIATION SPORTIVE ST-OUEN-L'AUMONE",
+    club == "HANDBALL HAZEBROUCK 71" ~ "HANDBALL HAZEBROUCK",
+    club =="LILLE METROPOLE - HANDBALL CLUB VILLENEUVE D'ASCQ" ~ "LILLE METROPOLE - HANDBALL CLUB",
+    club == "SAVIGNY HB 91" ~ "SAVIGNY HB",
+    club == "GRAND LIBOURNAIS HB (N" ~ "GRAND LIBOURNAIS HB",
+    club == "GRAND LIBOURNAIS HB (N1M)" ~ "GRAND LIBOURNAIS HB",
+    club == "MAINVILLIERS-CHARTRES HANDBALL 2" ~ "MAINVILLIERS-CHARTRES HANDBALL",
     TRUE ~ club
   )) %>% 
   filter(club != "SAINT-CYR VAR HANDBALL")
@@ -128,7 +141,7 @@ for (i in 1:nrow(result)){
 # Récupérer le résultat point par jour
 
 ```{r}
-#write.csv(result, "point_jour_bis.csv")
+write.csv(result, "point_jour_N1.csv")
 ```
 NA dû à l'absence de certaine feuille de match.
 Fichier complété à la main.
@@ -301,7 +314,7 @@ for (i in 1:nrow(df)){
 
 df2 <- df2 %>% select(saison, division, HF, journee, code_rencontre, diff_point, diff_point_norm)
 
-write.csv(df2, "Data/data_diff_point_norme.csv")
+#write.csv(df2, "Data/data_diff_point_norme.csv")
 
 ```
 
@@ -309,6 +322,8 @@ write.csv(df2, "Data/data_diff_point_norme.csv")
 # Graphes
 
 ```{r}
+df2 <- read.csv("Data/data_diff_point_norme.csv", row.names = 1)
+
 df2 %>% 
   mutate(journee_num = as.numeric(str_extract(journee, "[0-9].*")) )%>% 
   ggplot(aes(x = journee_num, y = diff_point)) +
@@ -327,20 +342,29 @@ df_ref_point <- df2 %>% group_by(saison, division, HF, journee) %>%
 df_ref_point$abs_ref_diff_point1 <- abs(df_ref_point$ref_diff_point1)
 df_ref_point <- df_ref_point %>%  na.omit()
 clustering <- kmeans(df_ref_point$abs_ref_diff_point1, centers = 3)
-df_ref_point$group_diff_point <- as.factor(clustering$cluster)
+df_ref_point$group_diff_point <- factor(clustering$cluster, levels = c(3,1,2))
 
 table(df_ref_point$group_diff_point)
 
+df_ref_point <- df_ref_point %>% 
+  mutate(ecart_classement = case_when(
+    group_diff_point == 3 ~ "faible",
+    group_diff_point == 1 ~ "moyen",
+    group_diff_point == 2 ~ "eleve"
+  ))
+
+df_ref_point$ecart_classement <- factor(df_ref_point$ecart_classement, levels = c("faible","moyen","eleve"))
+
 df_ref_point %>% 
   mutate(journee_num = as.numeric(str_extract(journee, "[0-9].*"))) %>% 
-  ggplot(aes(x = journee_num, y = ref_diff_point1, color = group_diff_point)) +  # Ajout de 'color = group_diff_point'
+  ggplot(aes(x = journee_num, y = ref_diff_point1, color = ecart_classement)) +  # Ajout de 'color = group_diff_point'
   geom_point(size = 2, alpha = 0.7) +  # Points bien alignés
-  labs(title = "Nuage de points des différences de points normée par journée",
+  labs(title = "Nuage de points des différences de points pour 1 point normé par journée",
        x = "Journée",
-       y = "Différence de points normée") +
-  theme_minimal() +
-  #geom_smooth() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+       y = "Différence de points") +
+  scale_x_continuous(breaks = seq(0, 30, by = 2)) +
+  theme_minimal()
+  #geom_smooth()
 ```
 
 # Graphe répartition de diff_point_norm
@@ -365,6 +389,16 @@ ggplot(data_mod1, aes(x = group_diff_point, y = abs_diff_point_norm, fill = grou
   geom_boxplot() +
   labs(title = "Répartition des groupes créés", x = "Groupes", y = "Valeurs de A") +
   theme_minimal()
+
+data_mod1 %>% 
+  mutate(journee_num = as.numeric(str_extract(journee, "[0-9].*")) )%>% 
+  ggplot(aes(x = journee_num, y = diff_point, color = group_diff_point)) +
+  geom_point(size = 2, alpha = 0.7) +  # Points bien alignés
+  labs(title = "Nuage de points des différences de points par journée",
+       x = "Journée",
+       y = "Différence de points") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
 
