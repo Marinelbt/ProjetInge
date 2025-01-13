@@ -232,8 +232,8 @@ data_mod2 <- data_mod2 %>%
   drop_na()
 
 data_mod2$abs_diff_point_norm <- abs(data_mod2$diff_point_norm)
-clustering <- kmeans(data_mod2$abs_diff_point_norm, centers = 3)
-data_mod2$group_diff_point <- factor(clustering$cluster, levels = c(3,2,1))
+clustering2 <- kmeans(data_mod2$abs_diff_point_norm, centers = 3)
+data_mod2$group_diff_point <- factor(clustering2$cluster, levels = c(3,2,1))
 
 table(data_mod2$group_diff_point)
 
