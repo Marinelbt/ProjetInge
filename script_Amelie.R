@@ -5,7 +5,7 @@ library(dplyr)
 
 
 # Charger le fichier PDF
-pdf_file <- "pdf/rencontre_D2H_2425_854.pdf"
+pdf_file <- "N1/rencontre_N1H1_2122_4014.pdf"
 text <- pdf_text(pdf_file)
 
 # Diviser le contenu en lignes
@@ -60,9 +60,9 @@ code_renc
 ##### Nom équipes #####
 
 equipe <- lines[str_detect(lines, " / ")][1]
-equipe <- str_split(equipe, "/")
+equipe <- str_split(equipe, " / ")
 recevant <- str_trim(equipe[[1]][1])
-visiteur <- str_trim(str_extract(equipe[[1]][2], "^[^\\d]+"))
+visiteur <- str_trim(str_extract(equipe[[1]][3], "^[^\\d]+"))
 
 
 ##### Noms coachs #####
