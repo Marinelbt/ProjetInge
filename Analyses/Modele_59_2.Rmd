@@ -223,24 +223,43 @@ data_mod1 <- data_mod1 %>%
 
 data_mod1$abs_diff_point_norm <- abs(data_mod1$diff_point_norm)
 clustering <- kmeans(data_mod1$abs_diff_point_norm, centers = 3)
-data_mod1$group_diff_point <- factor(clustering$cluster, levels = c(3,1,2))
+data_mod1$group_diff_point <- factor(clustering$cluster, levels = c(1,2,3))
 
 table(data_mod1$group_diff_point)
 
+<<<<<<< HEAD
+=======
+ggplot(data_mod1, aes(x = group_diff_point, y = abs_diff_point_norm, fill = ecart_classement)) +
+  geom_boxplot() +
+  labs(title = "Répartition des groupes créés", x = "Groupes", y = "Valeurs de A") +
+  theme_minimal()
+>>>>>>> a96a66c7e23be0fb63b5f9e0696a4e56bed8be29
 
 data_mod1 <- data_mod1 %>% 
   mutate(ecart_classement = case_when(
-    group_diff_point == 1 ~ "moyen",
-    group_diff_point == 2 ~ "eleve",
-    group_diff_point == 3 ~ "faible"
+    group_diff_point == 1 ~ "faible",
+    group_diff_point == 2 ~ "moyen",
+    group_diff_point == 3 ~ "eleve"
   ))
 
 data_mod1$ecart_classement <- factor(data_mod1$ecart_classement, levels = c("faible","moyen","eleve"))
 
+<<<<<<< HEAD
 ggplot(data_mod1, aes(x = ecart_classement, y = abs_diff_point_norm, fill = group_diff_point)) +
   geom_boxplot() +
   labs(title = "Répartition des groupes créés", x = "Groupes", y = "Valeurs de A") +
   theme_minimal()
+=======
+data_mod1 %>% 
+  mutate(journee_num = as.numeric(str_extract(journee, "[0-9].*")) )%>% 
+  ggplot(aes(x = journee_num, y = diff_point_norm, color = ecart_classement)) +
+  geom_point(size = 2, alpha = 0.7) +  # Points bien alignés
+  labs(title = "Nuage de points des différences de points par journée",
+       x = "Journée",
+       y = "Différence de points normée") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+>>>>>>> a96a66c7e23be0fb63b5f9e0696a4e56bed8be29
 ```
 
 
@@ -304,7 +323,7 @@ ggplot(data.frame(Var = factor(names(table(data_mod1$ecart_classement)), levels 
   geom_bar(stat = "identity", color = "black") +
   geom_text(aes(label = Freq), vjust = -0.5) +
   labs(title = "Distribution ecart classement", x = "Ecart classement", y = "Fréquence") +
-  scale_fill_manual(values = c("brown1", "grey", "lightgreen")) +
+  scale_fill_manual(values = c("lightgreen", "grey", "brown1")) +
   theme_minimal() +
   theme(legend.position = "none")
 ```
@@ -320,8 +339,9 @@ contrasts(data_mod1$ecart_classement) <- contr.sum(nlevels(data_mod1$ecart_class
 ```{r}
 data_filtre <- data_mod1 %>% filter(HF == "F")
 
-mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, data = data_filtre, family = "binomial")
-#summary(mod1)
+mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, 
+            data = data_mod1, family = "binomial")
+summary(mod1)
 
 mod_final <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
 mod_final
