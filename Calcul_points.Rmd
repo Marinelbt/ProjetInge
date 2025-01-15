@@ -78,12 +78,8 @@ summary(points_par_club$journee)
 
 points_par_club <- points_par_club %>% 
   mutate(club = case_when(
-    club == "PARIS 92" ~ "PARIS",
-    club == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
     club == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
-    club == "LE POUZIN HB 07" ~ "LE POUZIN HB",
     club == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
-    club == "LIMOGES HAND 87" ~ "LIMOGES HAND",
     club == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
     club == "NANCY HANDBALL" ~ "NANCY METROPOLE",
     club == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
@@ -98,7 +94,6 @@ points_par_club <- points_par_club %>%
     club == "HBC NANTAIS" ~ "HBC NANTES",
     club == "MASSY ESSONNE HB" ~ "MASSY ESSONNE HANDBALL",
     club == "NOISY-LE-GRAND HANDBALL" ~ "NOISY LE GRAND HANDBALL",
-    club == "ROCHECHOUART-ST-JUNIEN HANDBALL 87" ~ "ROCHECHOUART-ST-JUNIEN HANDBALL",
     club == "HBC ST AMAND LES EAUX PORTE DU HAINAUT" ~ "ST AMAND HANDBALL - PORTE DU HAINAUT",
     club == "CHAMBERY SAVOIE MT-BLANC HB" ~ "CHAMBERY SAVOIE HB",
     club == "GRAND NANCY METROPOLE HB" ~ "GRAND NANCY METROPOLE HANDBALL",
@@ -110,19 +105,9 @@ points_par_club <- points_par_club %>%
     club == "E. STRASBOURG SCHILTIGHEIM ALSACE HANDBALL" ~ "STRASBOURG EUROMETROPOLE HB",
     club == "LIMOGES HANDBALL" ~ "LIMOGES",
     club == "LIMOGES HAND" ~ "LIMOGES",
-    club == "ELITE VAL-D'OISE (N" ~ "ELITE VAL-D'OISE",
-    club =="ELITE VAL-D'OISE (N1M)" ~ "ELITE VAL-D'OISE",
-    club == "LORMONT HB (N" ~"LORMONT HB",
-    club == "GRAND POITIERS HANDBALL 86" ~ "GRAND POITIERS HANDBALL",
-    club == "HANDBALL HAZEBROUCK 71" ~ "HANDBALL HAZEBROUCK",
-    club =="SAVIGNY HB 91" ~"SAVIGNY HB",
+    club == "ELITE VAL D'OISE" ~ "ELITE VAL-D'OISE",
     club =="ASSOCIATION SPORTIVE ST-OUEN-L'AUMONE HANDBALL" ~ "ASSOCIATION SPORTIVE ST-OUEN-L'AUMONE",
-    club == "HANDBALL HAZEBROUCK 71" ~ "HANDBALL HAZEBROUCK",
     club =="LILLE METROPOLE - HANDBALL CLUB VILLENEUVE D'ASCQ" ~ "LILLE METROPOLE - HANDBALL CLUB",
-    club == "SAVIGNY HB 91" ~ "SAVIGNY HB",
-    club == "GRAND LIBOURNAIS HB (N" ~ "GRAND LIBOURNAIS HB",
-    club == "GRAND LIBOURNAIS HB (N1M)" ~ "GRAND LIBOURNAIS HB",
-    club == "MAINVILLIERS-CHARTRES HANDBALL 2" ~ "MAINVILLIERS-CHARTRES HANDBALL",
     TRUE ~ club
   )) %>% 
   filter(club != "SAINT-CYR VAR HANDBALL")
@@ -141,14 +126,14 @@ for (i in 1:nrow(result)){
 # Récupérer le résultat point par jour
 
 ```{r}
-write.csv(result, "point_jour_N1.csv")
+#write.csv(result, "point_jour_N1.csv")
 ```
 NA dû à l'absence de certaine feuille de match.
 Fichier complété à la main.
 
 
 ```{r}
-point_jour <- read.csv("Data/point_jour.csv", row.names = 1, sep=";")
+point_jour <- read.csv("point_jour_N1.csv", row.names = 1, sep=";")
 ```
 
 
@@ -157,7 +142,7 @@ for (i in 1:nrow(point_jour)){
   if (is.na(point_jour$J1[i]) == T){
     point_jour$J1[i] <- 0
   }
-  for (j in 8:36){  # j = [J2:J6]
+  for (j in 8:32){  # j = [J2:J6]
     if (is.na(point_jour[i,j-1])==T){
       point_jour[i,j-1] <- point_jour[i,j-2]
       point_jour[i,j] <- point_jour[i,j] + point_jour[i,j-1]
@@ -165,8 +150,8 @@ for (i in 1:nrow(point_jour)){
       point_jour[i,j] <- point_jour[i,j] + point_jour[i,j-1]
     }
   }
-  if(is.na(point_jour$J30[i])==T){
-    point_jour$J30[i] <- point_jour$J25[i]
+  if(is.na(point_jour$J26[i])==T){
+    point_jour$J26[i] <- point_jour$J25[i]
   }
   
 }
@@ -182,7 +167,7 @@ point_jour$division <- factor(point_jour$division)
 point_jour$J0 <- 0
 point_jour <- point_jour %>% relocate('J0', .after = 'total_point')
 
-for (j in 37:8){
+for (j in 32:8){
   point_jour[,j] <- point_jour[,j-1]
 }
 
@@ -191,14 +176,19 @@ point_jour <- point_jour %>%
   pivot_longer(cols = starts_with("J"), names_to = "journee", values_to = "points") %>%
   mutate(journee = toupper(journee))
 
-write.csv(point_jour, "point_jour_final.csv")
+point_jour <- point_jour %>%
+  group_by(club) %>%                            
+  filter(as.numeric(sub("J", "", journee)) <= match_joue) %>% 
+  ungroup() 
+
+write.csv(point_jour, "point_jour_final_N1.csv")
 ```
 
 
 # Normaliser point par journée
 
 ```{r}
-df <- read.table("Data/df_pdfs.csv", header = TRUE, sep = ",")
+df <- read.table("df_pdfs_N1.csv", header = TRUE, sep = ",")
 df <- df %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
   mutate(
@@ -210,7 +200,7 @@ df <- df %>%
   mutate(
     saison = str_extract(fichier, "\\d{4}"),           
     HF = str_extract(fichier, "[FH]"),              
-    division = str_extract(fichier, "D\\d"),          
+    division = str_extract(fichier, "N\\d"),          
     match_num = str_extract(fichier, "_\\d+_\\d{4}") %>%
       str_extract("^\\d+")
   ) %>% 
@@ -223,12 +213,8 @@ df <- df %>%
 
 df <- df %>% 
   mutate(club_recevant = case_when(
-    club_recevant == "PARIS 92" ~ "PARIS",
-    club_recevant == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
     club_recevant == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
-    club_recevant == "LE POUZIN HB 07" ~ "LE POUZIN HB",
     club_recevant == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
-    club_recevant == "LIMOGES HAND 87" ~ "LIMOGES HAND",
     club_recevant == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
     club_recevant == "NANCY HANDBALL" ~ "NANCY METROPOLE",
     club_recevant == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
@@ -243,18 +229,28 @@ df <- df %>%
     club_recevant == "HBC NANTAIS" ~ "HBC NANTES",
     club_recevant == "MASSY ESSONNE HB" ~ "MASSY ESSONNE HANDBALL",
     club_recevant == "NOISY-LE-GRAND HANDBALL" ~ "NOISY LE GRAND HANDBALL",
+    club_recevant == "HBC ST AMAND LES EAUX PORTE DU HAINAUT" ~ "ST AMAND HANDBALL - PORTE DU HAINAUT",
+    club_recevant == "CHAMBERY SAVOIE MT-BLANC HB" ~ "CHAMBERY SAVOIE HB",
+    club_recevant == "GRAND NANCY METROPOLE HB" ~ "GRAND NANCY METROPOLE HANDBALL",
+    club_recevant == "LIMOGES HAND" ~ "LIMOGES HANDBALL",
+    club_recevant == "SAINT RAPHAEL VHB" ~ "SAINT RAPHAEL VAR HANDBALL",
+    club_recevant == "SARAN LOIRET HB" ~ "SARAN LOIRET HANDBALL",
+    club_recevant == "DIJON METROPOLE HB" ~ "DIJON METROPOLE HANDBALL",
+    club_recevant == "JS CHERBOURGEOISE MANCHE HB" ~ "JS CHERBOURGEOISE MANCHE HANDBALL",
+    club_recevant == "E. STRASBOURG SCHILTIGHEIM ALSACE HANDBALL" ~ "STRASBOURG EUROMETROPOLE HB",
+    club_recevant == "LIMOGES HANDBALL" ~ "LIMOGES",
+    club_recevant == "LIMOGES HAND" ~ "LIMOGES",
+    club_recevant == "ELITE VAL D'OISE" ~ "ELITE VAL-D'OISE",
+    club_recevant =="ASSOCIATION SPORTIVE ST-OUEN-L'AUMONE HANDBALL" ~ "ASSOCIATION SPORTIVE ST-OUEN-L'AUMONE",
+    club_recevant =="LILLE METROPOLE - HANDBALL CLUB VILLENEUVE D'ASCQ" ~ "LILLE METROPOLE - HANDBALL CLUB",
     TRUE ~ club_recevant
   )) %>%
   filter (club_recevant != "HBC ST AMAND LES EAUX PORTE DU HAINAUT",club_visiteur != "SAINT-CYR VAR HANDBALL")
 
 df <- df %>% 
   mutate(club_visiteur = case_when(
-    club_visiteur == "PARIS 92" ~ "PARIS",
-    club_visiteur == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
     club_visiteur == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
-    club_visiteur == "LE POUZIN HB 07" ~ "LE POUZIN HB",
     club_visiteur == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
-    club_visiteur == "LIMOGES HAND 87" ~ "LIMOGES HAND",
     club_visiteur == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
     club_visiteur == "NANCY HANDBALL" ~ "NANCY METROPOLE",
     club_visiteur == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
@@ -269,6 +265,20 @@ df <- df %>%
     club_visiteur == "HBC NANTAIS" ~ "HBC NANTES",
     club_visiteur == "MASSY ESSONNE HB" ~ "MASSY ESSONNE HANDBALL",
     club_visiteur == "NOISY-LE-GRAND HANDBALL" ~ "NOISY LE GRAND HANDBALL",
+    club_visiteur == "HBC ST AMAND LES EAUX PORTE DU HAINAUT" ~ "ST AMAND HANDBALL - PORTE DU HAINAUT",
+    club_visiteur == "CHAMBERY SAVOIE MT-BLANC HB" ~ "CHAMBERY SAVOIE HB",
+    club_visiteur == "GRAND NANCY METROPOLE HB" ~ "GRAND NANCY METROPOLE HANDBALL",
+    club_visiteur == "LIMOGES HAND" ~ "LIMOGES HANDBALL",
+    club_visiteur == "SAINT RAPHAEL VHB" ~ "SAINT RAPHAEL VAR HANDBALL",
+    club_visiteur == "SARAN LOIRET HB" ~ "SARAN LOIRET HANDBALL",
+    club_visiteur == "DIJON METROPOLE HB" ~ "DIJON METROPOLE HANDBALL",
+    club_visiteur == "JS CHERBOURGEOISE MANCHE HB" ~ "JS CHERBOURGEOISE MANCHE HANDBALL",
+    club_visiteur == "E. STRASBOURG SCHILTIGHEIM ALSACE HANDBALL" ~ "STRASBOURG EUROMETROPOLE HB",
+    club_visiteur == "LIMOGES HANDBALL" ~ "LIMOGES",
+    club_visiteur == "LIMOGES HAND" ~ "LIMOGES",
+    club_visiteur == "ELITE VAL D'OISE" ~ "ELITE VAL-D'OISE",
+    club_visiteur =="ASSOCIATION SPORTIVE ST-OUEN-L'AUMONE HANDBALL" ~ "ASSOCIATION SPORTIVE ST-OUEN-L'AUMONE",
+    club_visiteur =="LILLE METROPOLE - HANDBALL CLUB VILLENEUVE D'ASCQ" ~ "LILLE METROPOLE - HANDBALL CLUB",
     TRUE ~ club_visiteur
   )) %>%
   filter (club_visiteur != "HBC ST AMAND LES EAUX PORTE DU HAINAUT", club_visiteur != "SAINT-CYR VAR HANDBALL" )
@@ -276,14 +286,13 @@ df <- df %>%
 
 df$saison <- factor(df$saison)
 
-point_jour_final <- read.csv("Data/point_jour_final.csv", row.names=1)
+df <- df %>% filter(saison != 2425)
+
+point_jour_final <- read.csv("point_jour_final_N1.csv", row.names=1)
 point_jour_final$saison <- factor(point_jour_final$saison)
 
-point_jour_final <- point_jour_final %>%
-  group_by(club) %>%                              # Grouper par club
-  filter(as.numeric(sub("J", "", journee)) <= match_joue) %>% 
-  ungroup() 
 ```
+
 
 
 # Rajouter diff_point au dataframe
@@ -314,7 +323,7 @@ for (i in 1:nrow(df)){
 
 df2 <- df2 %>% select(saison, division, HF, journee, code_rencontre, diff_point, diff_point_norm)
 
-#write.csv(df2, "Data/data_diff_point_norme.csv")
+write.csv(df2, "Data/data_diff_point_norme_N1.csv")
 
 ```
 
@@ -322,9 +331,10 @@ df2 <- df2 %>% select(saison, division, HF, journee, code_rencontre, diff_point,
 # Graphes
 
 ```{r}
-df2 <- read.csv("Data/data_diff_point_norme.csv", row.names = 1)
+df2 <- read.csv("Data/data_diff_point_norme_N1.csv", row.names = 1)
 
 df2 %>% 
+  na.omit() %>% 
   mutate(journee_num = as.numeric(str_extract(journee, "[0-9].*")) )%>% 
   ggplot(aes(x = journee_num, y = diff_point)) +
   geom_point(color = "blue", size = 2, alpha = 0.7) +  # Points bien alignés
@@ -339,9 +349,9 @@ df2 %>%
 df_ref_point <- df2 %>% group_by(saison, division, HF, journee) %>% 
   summarise(ref_diff_point1 = sd(diff_point, na.rm = TRUE) + mean(diff_point, na.rm = TRUE), .groups = "drop")
 
-df_ref_point$abs_ref_diff_point1 <- abs(df_ref_point$ref_diff_point1)
+
 df_ref_point <- df_ref_point %>%  na.omit()
-clustering <- kmeans(df_ref_point$abs_ref_diff_point1, centers = 3)
+clustering <- kmeans(df_ref_point$ref_diff_point1, centers = 3)
 df_ref_point$group_diff_point <- factor(clustering$cluster, levels = c(3,1,2))
 
 table(df_ref_point$group_diff_point)
