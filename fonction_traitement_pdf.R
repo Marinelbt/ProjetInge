@@ -50,9 +50,13 @@ traitement_pdf <- function(pdf_file) {
   
   # Nom équipes
   equipe <- lines[str_detect(lines, " / ")][1]
-  equipe <- str_split(equipe, "/")
-  recevant <- str_trim(equipe[[1]][1])
-  visiteur <- str_trim(str_extract(equipe[[1]][2], "^[^\\d]+"))
+  equipe <- str_split(equipe, " / ")
+  recevant <- str_trim(str_extract(equipe[[1]][1], "^[^\\d\\(]+"))
+  if (recevant == "BORDEAUX BRUGES" | recevant == "UNION GIRONDINS DE BORDEAUX BASTIDE"){ # cas ou il y a un / dans le nom du club
+    visiteur <- str_trim(str_extract(equipe[[1]][3], "^[^\\d\\(]+"))
+  } else {
+    visiteur <- str_trim(str_extract(equipe[[1]][2], "^[^\\d\\(]+"))
+  }
   
   # Noms coach
   index_coach <- which(str_detect(lines, "Officiel Resp\\."))
@@ -148,7 +152,7 @@ ajout_variables <- function(df_info_match) {
   return(df_final)
 }
 
-ajout_variables(traitement_pdf("pdf/rencontre_D1H_2021_589.pdf"))
+ajout_variables(traitement_pdf("N1/rencontre_N1H1_2122_4014.pdf"))
 
 pdf_file <- "pdf/rencontre_D1H_2021_383.pdf"
 

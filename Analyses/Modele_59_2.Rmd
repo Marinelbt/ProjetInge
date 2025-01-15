@@ -220,25 +220,24 @@ data_mod1 <- data_mod1 %>%
   left_join(diff_norme, by = join_by(code_rencontre, journee, HF, division, saison)) %>% 
   drop_na()
 
-data_mod1$abs_diff_point_norm <- abs(data_mod1$diff_point_norm)
-clustering <- kmeans(data_mod1$abs_diff_point_norm, centers = 3)
-data_mod1$group_diff_point <- factor(clustering$cluster, levels = c(1,2,3))
+clustering <- kmeans(data_mod1$diff_point_norm, centers = 3)
+data_mod1$group_diff_point <- factor(clustering$cluster, levels = c(2,3,1))
 
 table(data_mod1$group_diff_point)
 
-ggplot(data_mod1, aes(x = group_diff_point, y = abs_diff_point_norm, fill = ecart_classement)) +
+ggplot(data_mod1, aes(x = group_diff_point, y = diff_point_norm, fill = ecart_classement)) +
   geom_boxplot() +
   labs(title = "Répartition des groupes créés", x = "Groupes", y = "Valeurs de A") +
   theme_minimal()
 
 data_mod1 <- data_mod1 %>% 
   mutate(ecart_classement = case_when(
-    group_diff_point == 1 ~ "faible",
-    group_diff_point == 2 ~ "moyen",
-    group_diff_point == 3 ~ "eleve"
+    group_diff_point == 2 ~ "moins fort",
+    group_diff_point == 3 ~ "meme niveau",
+    group_diff_point == 1 ~ "plus fort"
   ))
 
-data_mod1$ecart_classement <- factor(data_mod1$ecart_classement, levels = c("faible","moyen","eleve"))
+data_mod1$ecart_classement <- factor(data_mod1$ecart_classement, levels = c("moins fort","meme niveau","plus fort"))
 
 data_mod1 %>% 
   mutate(journee_num = as.numeric(str_extract(journee, "[0-9].*")) )%>% 
