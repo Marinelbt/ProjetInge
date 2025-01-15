@@ -288,8 +288,14 @@ data2 <- data %>%
   filter(Temps_Sec >= 59*60) %>% 
   mutate(difference_points = abs(score_recevant - score_visiteur))
 
-distribution_ecarts <- data2 %>%
-  filter(action == "But") %>% 
+data3 <- data %>%
+  group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur) %>%
+  summarise(temps_proche_59_min = max(Temps_Sec[Temps_Sec < 59 * 60], na.rm = TRUE),
+            score_recevant_59_min = first(score_recevant[Temps_Sec == temps_proche_59_min]),
+            score_visiteur_59_min = first(score_visiteur[Temps_Sec == temps_proche_59_min]),
+            difference_points = abs(score_recevant_59_min - score_visiteur_59_min))
+
+distribution_ecarts <- data3 %>%
   group_by(difference_points) %>%
   summarise(count = n()) %>%
   mutate(
@@ -322,27 +328,39 @@ p_combined <- ggplot(combined_data, aes(x = as.factor(difference_points), y = pe
 p_combined
 
 
-frequence_ecarts <- data2 %>%
-  filter(action == "But") %>% 
+frequence_ecarts <- data3 %>%
   group_by(difference_points) %>%
   summarise(
     total_instances = n()  
   )
 
-temps_morts_par_ecart <- data2 %>%
-  filter(action == "Tem") %>%  
+temps_morts_par_ecart_r <- data2 %>%
+  filter(action == "Tem" & action_equipe == "r") %>%  
   group_by(difference_points) %>%
   summarise(
     temps_morts = n()  
   )
 
-taux_temps_morts <- temps_morts_par_ecart %>%
-  left_join(frequence_ecarts, by = "difference_points") %>%
-  mutate(
-    taux_temps_morts = temps_morts / total_instances  # Taux de prise de temps-morts
+temps_morts_par_ecart_v <- data2 %>%
+  filter(action == "Tem" & action_equipe == "v") %>%  
+  group_by(difference_points) %>%
+  summarise(
+    temps_morts = n()  
   )
 
-p_taux <- ggplot(taux_temps_morts, aes(x = as.factor(difference_points), y = taux_temps_morts)) +
+taux_temps_morts_r <- temps_morts_par_ecart_r %>%
+  left_join(frequence_ecarts, by = "difference_points") %>%
+  mutate(
+    taux_temps_morts = temps_morts / total_instances  
+  )
+
+taux_temps_morts_v <- temps_morts_par_ecart_v %>%
+  left_join(frequence_ecarts, by = "difference_points") %>%
+  mutate(
+    taux_temps_morts = temps_morts / total_instances  
+  )
+
+p_taux_r <- ggplot(taux_temps_morts_r, aes(x = as.factor(difference_points), y = taux_temps_morts)) +
   geom_bar(fill = "skyblue", stat = "identity", show.legend = FALSE) +
   geom_text(
     aes(label = scales::percent(taux_temps_morts, accuracy = 0.1)), 
@@ -356,13 +374,35 @@ p_taux <- ggplot(taux_temps_morts, aes(x = as.factor(difference_points), y = tau
     size = 1  
    ) +
   labs(
-    title = "Taux de prises de temps-morts par écart de points à la dernière minute du match",
+    title = "Taux de prises de temps-morts du club recevant pendant la dernière minute par écart de points",
     x = "Écart de points",
     y = "Taux de Temps-Morts pris à la derière minute"
   ) +
   theme_minimal()
 
-p_taux
+p_taux_r
+
+p_taux_v <- ggplot(taux_temps_morts_v, aes(x = as.factor(difference_points), y = taux_temps_morts)) +
+  geom_bar(fill = "skyblue", stat = "identity", show.legend = FALSE) +
+  geom_text(
+    aes(label = scales::percent(taux_temps_morts, accuracy = 0.1)), 
+    vjust = -0.5, 
+    size = 3
+  ) +
+    geom_vline(
+    xintercept = 4.5,  
+    linetype = "dashed",  
+    color = "black",  
+    size = 1  
+   ) +
+  labs(
+    title = "Taux de prises de temps-morts pendant la dernière minute par écart de points à la 59ème minute",
+    x = "Écart de points",
+    y = "Taux de Temps-Morts pris à la derière minute"
+  ) +
+  theme_minimal()
+
+p_taux_v
 
 
 ```
@@ -645,61 +685,8 @@ data_mod1 <- data %>%
   ) %>% 
   select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min))
 
-data_TM <- data_mod1 %>% 
-  filter(TM_derniere_min == 1)
-
-data_pasTM <- data_mod1 %>% 
-  filter(TM_derniere_min == 0)
-
-data_effect_TM <- data_TM %>%
-  group_by(statut_59_min, effet_positif) %>%
-  summarise(count = n(), .groups = "drop") %>%
-  group_by(statut_59_min) %>%
-  mutate(percentage = count / sum(count) * 100)
-
-data_effect <- data_pasTM %>%
-  group_by(statut_59_min, effet_positif) %>%
-  summarise(count = n(), .groups = "drop") %>%
-  group_by(statut_59_min) %>%
-  mutate(percentage = count / sum(count) * 100)
-
-p6 <- ggplot(data = data_effect_TM, aes(x = as.factor(statut_59_min), y = count, fill = as.factor(effet_positif))) +
-  geom_bar(stat = "identity") +
-  geom_text(
-    aes(
-      label = paste0(round(percentage, 1), "%"),
-      y = ifelse(effet_positif == 1, count / 2, cumsum(count))  
-    ),
-    color = "white",
-    size = 4,
-    position = position_stack(vjust = 0.5)
-  ) +
-  scale_x_discrete(
-    labels = c("-1" = "Perd", "0" = "Égalité", "1" = "Gagne")  
-  ) +
-  scale_fill_manual(
-    values = c("0" = "indianred", "1" = "darkolivegreen3"),
-    labels = c("0" = "Non", "1" = "Oui")
-  ) +
-  labs(
-    title = "Effets positifs des temps-morts\n pris à la dernière minute,\nselon le statut à 59 min",
-    x = "Statut à 59 min",
-    y = "Nombre de Temps-Morts \npris à la dernière minute",
-    fill = "Effet positif"
-  ) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.01))) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(hjust = 0.5, size = 14), 
-    legend.title = element_text(size = 12),           
-    legend.text = element_text(size = 10)           
-  )
-
-p6
-
-
 data_summary <- data_mod1 %>%
-  group_by(statut_59_min, TM_derniere_min) %>%
+  group_by(statut_59_min, TM_derniere_min, TM_derniere_min_adverse) %>%
   summarise(
     positif = sum(effet_positif == 1),
     negatif = sum(effet_positif == 0),
@@ -709,9 +696,23 @@ data_summary <- data_mod1 %>%
     total = positif + negatif,  # Calcule le total pour chaque groupe
     pourcentage_positif = positif / total * 100,  # Calcule le pourcentage positif
     fleche = case_when(
-      TM_derniere_min == 1 & statut_59_min == -1 ~ " ↑",  # Flèche vers le haut pour -1
-      TM_derniere_min == 1 & statut_59_min %in% c(0, 1) ~ " ↓",  # Flèche vers le bas pour 0 et 1
+      TM_derniere_min == 1 & TM_derniere_min_adverse == 0 & statut_59_min == -1 ~ " ↑",
+      TM_derniere_min == 1 & TM_derniere_min_adverse == 0 & statut_59_min == 0 ~ " ↓",
+      TM_derniere_min == 1 & TM_derniere_min_adverse == 0 & statut_59_min == 1 ~ " ↓",
+      TM_derniere_min == 0 & TM_derniere_min_adverse == 1 & statut_59_min == -1 ~ " ↑",
+      TM_derniere_min == 0 & TM_derniere_min_adverse == 1 & statut_59_min == 0 ~ " ↑",
+      TM_derniere_min == 0 & TM_derniere_min_adverse == 1 & statut_59_min == 1 ~ " ↓",
+      TM_derniere_min == 1 & TM_derniere_min_adverse == 1 & statut_59_min == -1 ~ " ↑",
+      TM_derniere_min == 1 & TM_derniere_min_adverse == 1 & statut_59_min == 0 ~ " ↑",
+      TM_derniere_min == 1 & TM_derniere_min_adverse == 1 & statut_59_min == 1 ~ " ↓",
       TRUE ~ ""  # Pas de flèche sinon
+    ),
+    # Ajouter une colonne combinée pour les facettes
+    facet_group = case_when(
+      TM_derniere_min == 0 & TM_derniere_min_adverse == 0 ~ "TM: Non,\nTM adversaire: Non",
+      TM_derniere_min == 1 & TM_derniere_min_adverse == 0 ~ "TM: Oui,\nTM adversaire: Non",
+      TM_derniere_min == 0 & TM_derniere_min_adverse == 1 ~ "TM: Non, \nTM adversaire: Oui",
+      TM_derniere_min == 1 & TM_derniere_min_adverse == 1 ~ "TM: Oui, \nTM adversaire: Oui"
     )
   ) %>%
   pivot_longer(cols = c(positif, negatif), names_to = "effet", values_to = "count") %>%
@@ -725,24 +726,23 @@ plot <- ggplot(data_summary, aes(x = as.factor(statut_59_min), y = count, fill =
   geom_bar(stat = "identity", position = "stack") +  # Barres empilées
   scale_fill_manual(values = c("positif" = "darkolivegreen3", "negatif" = "indianred")) +
   geom_text(
-    data = data_summary %>% filter(effet == "positif"),  # Affiche le texte uniquement pour les barres vertes
+    data = data_summary %>% filter(effet == "positif"), 
     aes(
       label = label_texte,
-      y = count / 2  # Positionne le texte au milieu de la barre verte
+      y = count / 2  
     ),
     color = "black",
-    size = 4,
+    size = 5,
     fontface = "bold"
   ) +
-  facet_wrap(~TM_derniere_min, 
-             labeller = labeller(TM_derniere_min = c(`1` = "Avec prise de\nTemps-Mort", `0` = "Sans prise de\nTemps-Mort"))) +
+  facet_wrap(~facet_group) +  
   labs(
     title = "Effets positifs des temps-morts pris à la dernière minute,\nselon le statut à 59 min",
     x = "Statut à 59 minutes",
-    y = "Effectif",
-    fill = "Effet"
+    y = "Effectif (Nombre de matchs)",
+    fill = "Effets"
   ) +
-  scale_x_discrete(labels = c("-1" = "Perd", "0" = "Égalité", "1" = "Gagne")) +  # Remplace les labels sur l'axe X
+  scale_x_discrete(labels = c("-1" = "Perd", "0" = "Égalité", "1" = "Gagne")) + 
   theme_minimal() +
   theme(
     plot.title = element_text(size = 16, face = "bold"),
@@ -751,7 +751,7 @@ plot <- ggplot(data_summary, aes(x = as.factor(statut_59_min), y = count, fill =
     axis.text = element_text(size = 12),
     legend.title = element_text(size = 14),
     legend.text = element_text(size = 12),
-    strip.text = element_text(size = 12, face = "bold")  # Augmente la taille des titres des facettes
+    strip.text = element_text(size = 12, face = "bold") 
   )
 
 plot
