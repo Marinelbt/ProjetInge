@@ -153,6 +153,22 @@ data_mod1 <- data %>%
     ),
     ecart_TM_derniere_minute = abs(score_TM_r - score_TM_v),
     ecart_TM_derniere_minute_adverse = abs(score_TM_adverse_r - score_TM_adverse_v),
+    TM_ecart = case_when(
+      TM_derniere_min == 1 & ecart_TM_derniere_minute == 0 ~ 0,
+      TM_derniere_min == 1 & ecart_TM_derniere_minute == 1 ~ 1,
+      TM_derniere_min == 1 & ecart_TM_derniere_minute == 2 ~ 2,
+      TM_derniere_min == 1 & ecart_TM_derniere_minute == 3 ~ 3,
+      TM_derniere_min == 0 ~ -1,
+      TRUE ~ NA
+    ),
+    TM_ecart_adverse = case_when(
+      TM_derniere_min_adverse == 1 & ecart_TM_derniere_minute_adverse == 0 ~ 0,
+      TM_derniere_min_adverse == 1 & ecart_TM_derniere_minute_adverse == 1 ~ 1,
+      TM_derniere_min_adverse == 1 & ecart_TM_derniere_minute_adverse == 2 ~ 2,
+      TM_derniere_min_adverse == 1 & ecart_TM_derniere_minute_adverse == 3 ~ 3,
+      TM_derniere_min_adverse == 0 ~ -1,
+      TRUE ~ NA
+    )
   ) %>% 
   select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min))
 
@@ -172,10 +188,12 @@ data_mod1$equipe <- as.factor(data_mod1$equipe)
 data_mod1$DM_adverse <- as.factor(data_mod1$DM_adverse)
 data_mod1$DM <- as.factor(data_mod1$DM)
 data_mod1$statut_59_min <- as.factor(data_mod1$statut_59_min)
+data_mod1$TM_ecart_adverse <- as.factor(data_mod1$TM_ecart_adverse)
+data_mod1$TM_ecart <- as.factor(data_mod1$TM_ecart)
 ```
 
 ```{r}
-point_jour_final <- read.csv("../Data/point_jour_final.csv", row.names = 1)
+point_jour_final <- read.csv("Data/point_jour_final.csv", row.names = 1)
 point_jour_final$saison <- factor(point_jour_final$saison)
 
 data_mod1 <- data_mod1 %>% 
@@ -303,7 +321,10 @@ ggplot(data.frame(Var = names(table(data_mod1$statut_59_min)),
 ## Modèle 1
 
 ```{r}
-mod0 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_mod1, family = "binomial")
+contrasts(data_mod1$TM_ecart_adverse) <- contr.sum(levels(data_mod1$TM_ecart_adverse))
+contrasts(data_mod1$TM_ecart) <- contr.sum(levels(data_mod1$TM_ecart))
+
+mod0 <- glm(effet_positif ~ TM_ecart + TM_ecart_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_mod1, family = "binomial")
 summary(mod0)
 
 stepwise(mod0, direction="forward/backward", criterion="AIC")
@@ -316,7 +337,7 @@ stepwise(mod0, direction="forward/backward", criterion="AIC")
 data_egalite <- data_mod1 %>% 
   filter(statut_59_min == "0")
 
-mod_egalite2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_egalite, family = "binomial")
+mod_egalite2 <- glm(effet_positif ~ TM_ecart + TM_ecart_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_egalite, family = "binomial")
 summary(mod_egalite2)
 
 stepwise(mod_egalite2, direction="forward/backward", criterion="AIC")
@@ -327,7 +348,7 @@ stepwise(mod_egalite2, direction="forward/backward", criterion="AIC")
 data_perdant <- data_mod1 %>% 
   filter(statut_59_min == "-1")
 
-mod_perdant2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_perdant, family = "binomial")
+mod_perdant2 <- glm(effet_positif ~ TM_ecart + TM_ecart_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_perdant, family = "binomial")
 summary(mod_perdant2)
 
 stepwise(mod_perdant2, direction="forward/backward", criterion="AIC")
@@ -337,7 +358,7 @@ stepwise(mod_perdant2, direction="forward/backward", criterion="AIC")
 data_gagnant <- data_mod1 %>% 
   filter(statut_59_min == "1")
 
-mod_gagnant2 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_gagnant, family = "binomial")
+mod_gagnant2 <- glm(effet_positif ~ TM_ecart + TM_ecart_adverse + HF + DM_adverse + DM + diff_point_norm, data = data_gagnant, family = "binomial")
 summary(mod_gagnant2)
 
 stepwise(mod_gagnant2, direction="forward/backward", criterion="AIC")
