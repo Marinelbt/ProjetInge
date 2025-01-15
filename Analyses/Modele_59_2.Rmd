@@ -18,12 +18,13 @@ library(dplyr)
 library(tidyverse)
 library(ggplot2)
 library(RcmdrMisc)
+library(GGally)
 ```
 
 # Import données
 
 ```{r}
-data <- read.csv("../Data/df_pdfs.csv", header = TRUE, sep = ",")
+data <- read.csv("Data/df_pdfs.csv", header = TRUE, sep = ",")
 ```
 
 # Préparation données
@@ -213,7 +214,7 @@ data_mod1 <- data_mod1 %>%
 # Ajout de la variable différence de point
 
 ```{r}
-diff_norme <- read.csv("../Data/data_diff_point_norme.csv", row.names = 1)
+diff_norme <- read.csv("Data/data_diff_point_norme.csv", row.names = 1)
 diff_norme$saison <- factor(diff_norme$saison)
 
 data_mod1 <- data_mod1 %>% 
@@ -226,10 +227,6 @@ data_mod1$group_diff_point <- factor(clustering$cluster, levels = c(3,1,2))
 
 table(data_mod1$group_diff_point)
 
-ggplot(data_mod1, aes(x = ecart_classement, y = abs_diff_point_norm, fill = group_diff_point)) +
-  geom_boxplot() +
-  labs(title = "Répartition des groupes créés", x = "Groupes", y = "Valeurs de A") +
-  theme_minimal()
 
 data_mod1 <- data_mod1 %>% 
   mutate(ecart_classement = case_when(
@@ -239,6 +236,11 @@ data_mod1 <- data_mod1 %>%
   ))
 
 data_mod1$ecart_classement <- factor(data_mod1$ecart_classement, levels = c("faible","moyen","eleve"))
+
+ggplot(data_mod1, aes(x = ecart_classement, y = abs_diff_point_norm, fill = group_diff_point)) +
+  geom_boxplot() +
+  labs(title = "Répartition des groupes créés", x = "Groupes", y = "Valeurs de A") +
+  theme_minimal()
 ```
 
 
@@ -324,6 +326,8 @@ mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adver
 mod_final <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
 mod_final
 
+ggcoef_model(mod_final, exponentiate = TRUE)
+
 ```
 
 Il y a 76% de chances qu'il y ait un effet positif dans la dernière minute du jeu si l'équipe recevant prend un tm, l'équipe adverse n'en prend pas et qu'il y a une différence de point normée de 1 à la 59ème minute.
@@ -334,7 +338,7 @@ Il y a 76% de chances qu'il y ait un effet positif dans la dernière minute du j
 data_mod1_egalite <- data_filtre %>% 
   filter(statut_59_min == 0)
 
-mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + ecart_classement, data = data_mod1_egalite, family = "binomial")
+mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, data = data_mod1_egalite, family = "binomial")
 #summary(mod1)
 
 mod_final_egalite <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
@@ -377,5 +381,26 @@ mod_final_gagnant
 # 
 # proba <- logit_to_prob(coefficients)
 # print(proba)
+```
+
+```{r}
+ggcoef_compare(list(mod_final,mod_final_egalite, mod_final_perdant, mod_final_gagnant), exponentiate = TRUE, type = "faceted")
+
+
+ggcoef_compare(
+  list(
+    "Modèle global" = mod_final,
+    "Modèle égalité" = mod_final_egalite,
+    "Modèle perdant" = mod_final_perdant,
+    "Modèle gagnant" = mod_final_gagnant
+  ),
+  type = "faceted"
+) +
+  coord_cartesian(xlim = c(-6, 6)) +  # Limiter l'axe des abscisses
+  scale_x_continuous(
+    breaks = seq(-6, 6, by = 1),      # Ajouter des ticks tous les 1
+    minor_breaks = seq(-6, 6, by = 0.5)  # Sous-ticks tous les 0.5
+  )
+
 ```
 
