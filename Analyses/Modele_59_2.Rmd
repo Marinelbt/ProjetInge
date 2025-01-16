@@ -24,7 +24,7 @@ library(GGally)
 # Import données
 
 ```{r}
-data <- read.csv("../Data/df_pdfs.csv", header = TRUE, sep = ",")
+data <- read.csv("Data/df_pdfs.csv", header = TRUE, sep = ",")
 ```
 
 # Préparation données
@@ -215,7 +215,7 @@ data_mod1 <- data_mod1 %>%
 
 ```{r}
 set.seed(123)
-diff_norme <- read.csv("../Data/data_diff_point_norme.csv", row.names = 1)
+diff_norme <- read.csv("Data/data_diff_point_norme.csv", row.names = 1)
 diff_norme$saison <- factor(diff_norme$saison)
 
 data_mod1 <- data_mod1 %>% 

@@ -9,6 +9,21 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+#importations
+
+```{r}
+library(readr)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(RcmdrMisc)
+library(GGally)
+library(cvTools)
+library(pROC)
+library(caret)
+```
+
+
 #Jeu de données initial
 
 ```{r}
@@ -119,10 +134,6 @@ data_mod1 <- data_mod1 %>%
 
 ```
 
-```{r}
-#write_csv(data_mod1, "data_59_min.csv")
-```
-
 
 # Mise en facteur
 
@@ -198,6 +209,7 @@ data_mod1 <- data_mod1 %>%
 # Ajout de la variable différence de point
 
 ```{r}
+set.seed(123)
 diff_norme <- read.csv("Data/data_diff_point_norme.csv", row.names = 1)
 diff_norme$saison <- factor(diff_norme$saison)
 
@@ -205,21 +217,141 @@ data_mod1 <- data_mod1 %>%
   left_join(diff_norme, by = join_by(code_rencontre, journee, HF, division, saison)) %>% 
   drop_na()
 
-data_mod1$abs_diff_point_norm <- abs(data_mod1$diff_point_norm)
-clustering <- kmeans(data_mod1$abs_diff_point_norm, centers = 3)
-data_mod1$group_diff_point <- factor(clustering$cluster, levels = c(3,1,2))
+clustering <- kmeans(data_mod1$diff_point_norm, centers = 3)
+data_mod1$group_diff_point <- factor(clustering$cluster)
 
 table(data_mod1$group_diff_point)
 
 
+ggplot(data_mod1, aes(x = group_diff_point, y = diff_point_norm, fill = group_diff_point)) +
+  geom_boxplot() +
+  labs(title = "Répartition des groupes créés", x = "Groupes", y = "Valeurs de A") +
+  theme_minimal()
+
 data_mod1 <- data_mod1 %>% 
   mutate(ecart_classement = case_when(
-    group_diff_point == 1 ~ "moyen",
-    group_diff_point == 2 ~ "eleve",
-    group_diff_point == 3 ~ "faible"
+    group_diff_point == 1 ~ "moins fort",
+    group_diff_point == 2 ~ "meme niveau",
+    group_diff_point == 3 ~ "plus fort"
   ))
 
-data_mod1$ecart_classement <- factor(data_mod1$ecart_classement, levels = c("faible","moyen","eleve"))
+data_mod1$ecart_classement <- factor(data_mod1$ecart_classement, levels = c("moins fort","meme niveau","plus fort"))
+
+data_mod1 %>% 
+  mutate(journee_num = as.numeric(str_extract(journee, "[0-9].*")) )%>% 
+  ggplot(aes(x = journee_num, y = diff_point_norm, color = ecart_classement)) +
+  geom_point(size = 2, alpha = 0.7) +  # Points bien alignés
+  labs(title = "Nuage de points des différences de points par journée",
+       x = "Journée",
+       y = "Différence de points normée") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
+
+```{r}
+data_mod1 <- data_mod1[,-26]
+data_mod1$ecart_classement <- as.factor(data_mod1$group_diff_point)
+```
+
+
+# Sous-jeux de données 
+
+```{r}
+set.seed(123)  
+
+indices <- sample(1:nrow(data_mod1), size = nrow(data_mod1), replace = FALSE)
+
+train_size <- floor(0.8 * length(indices))  # 80% des données pour l'entraînement
+test_size <- floor(0.2 * length(indices))  # 20% des données pour le test
+
+train_indices <- indices[1:train_size]
+test_indices <- indices[(train_size + 1):(train_size + test_size)]
+
+train_data <- data_mod1[train_indices, ]
+test_data <- data_mod1[test_indices, ]
+```
+
+#validation croisée à la main
+
+```{r}
+
+k <- 10
+segments <- cvFolds(n = nrow(train_data), K = k, type = "random")
+resultats <- data.frame(Segment = integer(), Accuracy = numeric(), AUC = numeric())
+cvpred <- rep(0,times=nrow(train_data))
+
+for (k in 1:10) {
+  test_indices <- which(segments$which == k)
+  train <- train_data[-test_indices, ]
+  valid <- train_data[test_indices, ]
+  
+  modele <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, 
+            data = train, family = "binomial")
+  select <- stepwise(modele, direction = "backward/forward", criterion = "BIC")
+  modele <- glm(formula(select), data = train, family = "binomial")
+  probabilites <- predict(modele, newdata = valid, type = "response")
+  predictions <- ifelse(probabilites > 0.5, 1, 0)
+  cvpred[test_indices] <- predictions
+  print(k)
+}
+```
+
+# avec caret 
+
+
+```{r}
+
+train_control <- trainControl(
+  method = "cv",  
+  number = 10 
+)
+
+set.seed(123)  
+model <- train(
+  effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement,
+  data = train_data,   
+  method = "glm", 
+  family = "binomial",
+  trControl = train_control,
+  metric = "accuracy"  
+)
+
+print(model)
+
+pred_prob <- predict(model, newdata = test_data, type = "prob")
+pred_class <- ifelse(pred_prob[, "1"] > 0.5, 1, 0)
+
+mean(test_data$effet_positif == pred_class)
+```
+
+
+
+#Evaluation du modèle 
+
+```{r}
+# Entraînement final sur toutes les données d'entraînement (train_data)
+final_model <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, 
+                   data = train_data, family = "binomial")
+
+# Prédictions sur le jeu de test
+test_probabilities <- predict(final_model, newdata = test_data, type = "response")
+test_predictions <- ifelse(test_probabilities > 0.5, 1, 0)
+
+# Calcul de la table de confusion
+confusion_matrix <- table(test_data$effet_positif, test_predictions)
+
+# Calcul de la précision (Accuracy)
+accuracy_test <- mean(test_predictions == test_data$effet_positif)
+
+# Calcul de l'AUC pour test_data
+test_auc <- auc(test_data$effet_positif, test_probabilities)
+
+# Affichage des résultats
+print("Table de confusion:")
+print(confusion_matrix)
+print(paste("Accuracy sur test_data:", accuracy_test))
+print(paste("AUC sur test_data:", test_auc))
+```
+
 
 
