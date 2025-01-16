@@ -321,37 +321,18 @@ print(model)
 pred_prob <- predict(model, newdata = test_data, type = "prob")
 pred_class <- ifelse(pred_prob[, "1"] > 0.5, 1, 0)
 
-mean(test_data$effet_positif == pred_class)
-```
+accuracy <- mean(test_data$effet_positif == pred_class)
+confusion <- table(test_data$effet_positif, pred_class)
+#auc <- auc(test_data$effet_positif, pred_prob)
 
-
-
-#Evaluation du modèle 
-
-```{r}
-# Entraînement final sur toutes les données d'entraînement (train_data)
-final_model <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, 
-                   data = train_data, family = "binomial")
-
-# Prédictions sur le jeu de test
-test_probabilities <- predict(final_model, newdata = test_data, type = "response")
-test_predictions <- ifelse(test_probabilities > 0.5, 1, 0)
-
-# Calcul de la table de confusion
-confusion_matrix <- table(test_data$effet_positif, test_predictions)
-
-# Calcul de la précision (Accuracy)
-accuracy_test <- mean(test_predictions == test_data$effet_positif)
-
-# Calcul de l'AUC pour test_data
-test_auc <- auc(test_data$effet_positif, test_probabilities)
-
-# Affichage des résultats
 print("Table de confusion:")
-print(confusion_matrix)
-print(paste("Accuracy sur test_data:", accuracy_test))
-print(paste("AUC sur test_data:", test_auc))
+print(confusion)
+print(paste("Accuracy sur test_data:", accuracy))
+#print(paste("AUC sur test_data:", auc))
+
 ```
+
+
 
 
 
