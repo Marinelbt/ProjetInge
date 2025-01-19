@@ -52,8 +52,12 @@ traitement_pdf <- function(pdf_file) {
   equipe <- lines[str_detect(lines, " / ")][1]
   equipe <- str_split(equipe, " / ")
   recevant <- str_trim(str_extract(equipe[[1]][1], "^[^\\d\\(]+"))
+<<<<<<< HEAD
   if (recevant == "BORDEAUX BRUGES" | recevant == "UNION GIRONDINS DE BORDEAUX BASTIDE" | 
       recevant == "HB FEMININ MONTPELLIER" | recevant == "MAZAN" | recevant == "HANDBALL FEM MONTPELLIER"){ # cas ou il y a un / dans le nom du club
+=======
+  if (recevant == "BORDEAUX BRUGES" | recevant == "UNION GIRONDINS DE BORDEAUX BASTIDE"){ # cas ou il y a un / dans le nom du club
+>>>>>>> 5b63522e44faedabec8a625150eaf467e4dd9b01
     visiteur <- str_trim(str_extract(equipe[[1]][3], "^[^\\d\\(]+"))
   } else {
     visiteur <- str_trim(str_extract(equipe[[1]][2], "^[^\\d\\(]+"))
