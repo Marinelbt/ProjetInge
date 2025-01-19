@@ -21,11 +21,8 @@ library(tidyverse)
 # Classement par journée
 
 ```{r}
-<<<<<<< HEAD
-df <- read.csv("df_pdfs_N1_2.csv")
-=======
 df <- read.csv("df_pdfs_N1.csv")
->>>>>>> 5b63522e44faedabec8a625150eaf467e4dd9b01
+
 df <- df %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
   mutate(
@@ -130,22 +127,14 @@ for (i in 1:nrow(result)){
 # Récupérer le résultat point par jour
 
 ```{r}
-<<<<<<< HEAD
-#write.csv(result, "point_jour_N1_2.csv")
-=======
 #write.csv(result, "point_jour_N1.csv")
->>>>>>> 5b63522e44faedabec8a625150eaf467e4dd9b01
 ```
 NA dû à l'absence de certaine feuille de match.
 Fichier complété à la main.
 
 
 ```{r}
-<<<<<<< HEAD
-point_jour <- read.csv("point_jour_N1_2.csv", row.names = 1, sep=";")
-=======
 point_jour <- read.csv("point_jour_N1.csv", row.names = 1, sep=";")
->>>>>>> 5b63522e44faedabec8a625150eaf467e4dd9b01
 ```
 
 
@@ -335,11 +324,8 @@ for (i in 1:nrow(df)){
 
 df2 <- df2 %>% select(saison, division, HF, journee, code_rencontre, diff_point, diff_point_norm)
 
-<<<<<<< HEAD
-write.csv(df2, "Data/data_diff_point_norme_N1_2.csv")
-=======
+
 write.csv(df2, "Data/data_diff_point_norme_N1.csv")
->>>>>>> 5b63522e44faedabec8a625150eaf467e4dd9b01
 
 ```
 
