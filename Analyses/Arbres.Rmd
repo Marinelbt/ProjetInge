@@ -71,12 +71,12 @@ rpart.plot(tree)
 dev.off()
 
 # Prédictions sur les données d'entraînement
-pred_train <- predict(tree, type = "class")
+pred_train <- predict(tree, newdata = data.test, type = "class")
 
 # Calcul du taux de précision
-mean(pred_train == data.train$effet_positif)
+mean(pred_train == data.test$effet_positif)
 
-confusionMatrix(pred_train, data.train$effet_positif)
+confusionMatrix(pred_train, data.test$effet_positif)
 ```
 
 Analyse d'une feuille (0, 0.15, 43%) :

@@ -24,7 +24,7 @@ library(GGally)
 # Import données
 
 ```{r}
-data <- read.csv("Data/df_pdfs.csv", header = TRUE, sep = ",")
+data <- read.csv("../data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
 ```
 
 # Préparation données
@@ -116,7 +116,8 @@ data_mod1 <- data %>%
     ),
     division = case_when(
       grepl("D1", fichier, ignore.case = TRUE) ~ "D1",
-      grepl("D2", fichier, ignore.case = TRUE) ~ "D2"
+      grepl("D2", fichier, ignore.case = TRUE) ~ "D2",
+      grepl("N1", fichier, ignore.case = TRUE) ~ "N1"
     ),
     saison = case_when(
       grepl("2021", fichier, ignore.case = TRUE) ~ "2021",
@@ -126,7 +127,8 @@ data_mod1 <- data %>%
     )
   ) %>% 
   select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min)) %>% 
-  ungroup()
+  ungroup()  %>% 
+  filter (saison != 2425)
 
 # One ne garde que l'équipe recevante 
 data_mod1 <- data_mod1 %>%
@@ -134,11 +136,6 @@ data_mod1 <- data_mod1 %>%
   filter(statut_59_min != 0 | statut_final != 0)
 
 ```
-
-```{r}
-#write_csv(data_mod1, "data_59_min.csv")
-```
-
 
 # Mise en facteur
 
@@ -156,75 +153,29 @@ data_mod1$saison <- factor(data_mod1$saison)
 data_mod1$division <- factor(data_mod1$division)
 ```
 
-# Mise à jour nom 
-
-```{r}
- data_mod1 <- data_mod1 %>% 
-    mutate(club_recevant = case_when(
-      club_recevant == "PARIS 92" ~ "PARIS",
-      club_recevant == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
-      club_recevant == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
-      club_recevant == "LE POUZIN HB 07" ~ "LE POUZIN HB",
-      club_recevant == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
-      club_recevant == "LIMOGES HAND 87" ~ "LIMOGES HAND",
-      club_recevant == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
-      club_recevant == "NANCY HANDBALL" ~ "NANCY METROPOLE",
-      club_recevant == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
-      club_recevant == "VILLEURBANNE HANDBALL ASSOCIATION" ~ "VILLEURBANNE HANDBALL",
-      club_recevant == "TREMBLAY EN FRANCE HANDBALL" ~ "TREMBLAY HANDBALL",
-      club_recevant == "TREMBLAY-EN-FRANCE HANDBALL" ~ "TREMBLAY HANDBALL",
-      club_recevant == "TOULON METROPOLE VAR HB" ~ "TOULON METROPOLE VAR HANDBALL",
-      club_recevant == "BILLERE HANDBALL" ~ "BILLERE HANDBALL PAU PYRENEES",
-      club_recevant == "CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
-      club_recevant == "CAVIGAL NICE SPORTS HANDBALL" ~ "CAVIGAL NICE HANDBALL",
-      club_recevant == "FRONTIGNAN HANDBALL" ~ "FRONTIGNAN THAU HANDBALL",
-      club_recevant == "HBC NANTAIS" ~ "HBC NANTES",
-      club_recevant == "MASSY ESSONNE HB" ~ "MASSY ESSONNE HANDBALL",
-      club_recevant == "NOISY-LE-GRAND HANDBALL" ~ "NOISY LE GRAND HANDBALL",
-      TRUE ~ club_recevant
-    ))
-
-data_mod1 <- data_mod1 %>% 
-    mutate(club_visiteur = case_when(
-      club_visiteur == "PARIS 92" ~ "PARIS",
-      club_visiteur == "HANDBALL CLERMONT AUVERGNE METROPOLE 63" ~ "HANDBALL CLERMONT AUVERGNE METROPOLE",
-      club_visiteur == "BOUILLARGUES HANDBALL NIMES MEDITERRANEE" ~ "BOUILLARGUES HANDBALL NIMES METROPOLE",
-      club_visiteur == "LE POUZIN HB 07" ~ "LE POUZIN HB",
-      club_visiteur == "C'CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
-      club_visiteur == "LIMOGES HAND 87" ~ "LIMOGES HAND",
-      club_visiteur == "NANCY METROPOLE HB" ~ "NANCY METROPOLE",
-      club_visiteur == "NANCY HANDBALL" ~ "NANCY METROPOLE",
-      club_visiteur == "PAYS AIX UNIVERSITE CLUB HANDBALL" ~ "PROVENCE AIX UNIVERSITE CLUB HANDBALL",
-      club_visiteur == "VILLEURBANNE HANDBALL ASSOCIATION" ~ "VILLEURBANNE HANDBALL",
-      club_visiteur == "TREMBLAY EN FRANCE HANDBALL" ~ "TREMBLAY HANDBALL",
-      club_visiteur == "TREMBLAY-EN-FRANCE HANDBALL" ~ "TREMBLAY HANDBALL",
-      club_visiteur == "TOULON METROPOLE VAR HB" ~ "TOULON METROPOLE VAR HANDBALL",
-      club_visiteur == "BILLERE HANDBALL" ~ "BILLERE HANDBALL PAU PYRENEES",
-      club_visiteur == "CHARTRES HANDBALL" ~ "C'CHARTRES METROPOLE HANDBALL",
-      club_visiteur == "CAVIGAL NICE SPORTS HANDBALL" ~ "CAVIGAL NICE HANDBALL",
-      club_visiteur == "FRONTIGNAN HANDBALL" ~ "FRONTIGNAN THAU HANDBALL",
-      club_visiteur == "HBC NANTAIS" ~ "HBC NANTES",
-      club_visiteur == "MASSY ESSONNE HB" ~ "MASSY ESSONNE HANDBALL",
-      club_visiteur == "NOISY-LE-GRAND HANDBALL" ~ "NOISY LE GRAND HANDBALL",
-      TRUE ~ club_visiteur
-    ))
-```
-
 
 # Ajout de la variable différence de point
 
 ```{r}
-set.seed(123)
-diff_norme <- read.csv("Data/data_diff_point_norme.csv", row.names = 1)
+diff_norme <- read.csv("../data_final/data_diff_norme_final.csv", row.names = 1)
 diff_norme$saison <- factor(diff_norme$saison)
 
 data_mod1 <- data_mod1 %>% 
-  left_join(diff_norme, by = join_by(code_rencontre, journee, HF, division, saison)) %>% 
+  select(-c("journee","division","HF", "saison")) %>% 
+  left_join(diff_norme, by = join_by(code_rencontre)) %>% 
   drop_na()
+```
 
-clustering <- kmeans(data_mod1$diff_point_norm, centers = 3)
-data_mod1$group_diff_point <- factor(clustering$cluster)
+```{r}
+data_mod1 %>% 
+  ggplot(aes(x = diff_point_norm)) +
+  geom_density() +
+  theme_minimal()
 
+data_mod1$group_diff_point <- cut(data_mod1$diff_point_norm,
+                                  breaks = c(-Inf, -0.5, 0.5, Inf),
+                                  labels = c("moins fort","meme niveau","plus fort"),
+                                  include.lowest = T)
 table(data_mod1$group_diff_point)
 
 
@@ -235,16 +186,16 @@ ggplot(data_mod1, aes(x = group_diff_point, y = diff_point_norm, fill = group_di
 
 data_mod1 <- data_mod1 %>% 
   mutate(ecart_classement = case_when(
-    group_diff_point == 1 ~ "moins fort",
-    group_diff_point == 2 ~ "meme niveau",
-    group_diff_point == 3 ~ "plus fort"
+    group_diff_point == "moins fort" ~ 1,
+    group_diff_point == "meme niveau" ~ 2,
+    group_diff_point == "plus fort" ~ 3
   ))
 
-data_mod1$ecart_classement <- factor(data_mod1$ecart_classement, levels = c("moins fort","meme niveau","plus fort"))
+data_mod1$ecart_classement <- as.factor(data_mod1$ecart_classement)
 
 data_mod1 %>% 
   mutate(journee_num = as.numeric(str_extract(journee, "[0-9].*")) )%>% 
-  ggplot(aes(x = journee_num, y = diff_point_norm, color = ecart_classement)) +
+  ggplot(aes(x = journee_num, y = diff_point_norm, color = group_diff_point)) +
   geom_point(size = 2, alpha = 0.7) +  # Points bien alignés
   labs(title = "Nuage de points des différences de points par journée",
        x = "Journée",
@@ -310,8 +261,8 @@ ggplot(data.frame(Var = names(table(data_mod1$statut_59_min)),
 
 # Graphique répartition écart de classement
 
-ggplot(data.frame(Var = factor(names(table(data_mod1$ecart_classement)), levels = c("faible", "moyen", "eleve")), 
-                  Freq = as.numeric(table(data_mod1$ecart_classement))), aes(x = Var, y = Freq, fill = Var)) +
+ggplot(data.frame(Var = factor(names(table(data_mod1$group_diff_point)), levels = c("moins fort", "meme niveau", "plus fort")), 
+                  Freq = as.numeric(table(data_mod1$group_diff_point))), aes(x = Var, y = Freq, fill = Var)) +
   geom_bar(stat = "identity", color = "black") +
   geom_text(aes(label = Freq), vjust = -0.5) +
   labs(title = "Distribution ecart classement", x = "Ecart classement", y = "Fréquence") +
@@ -323,14 +274,12 @@ ggplot(data.frame(Var = factor(names(table(data_mod1$ecart_classement)), levels 
 # Contrastes
 
 ```{r}
-contrasts(data_mod1$ecart_classement) <- contr.sum(nlevels(data_mod1$ecart_classement))
+#contrasts(data_mod1$ecart_classement) <- contr.sum(nlevels(data_mod1$ecart_classement))
 ```
 
 # Modèle global
 
 ```{r}
-data_filtre <- data_mod1 %>% filter(HF == "F")
-
 mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, 
             data = data_mod1, family = "binomial")
 summary(mod1)
@@ -342,12 +291,11 @@ ggcoef_model(mod_final, exponentiate = TRUE)
 
 ```
 
-Il y a 76% de chances qu'il y ait un effet positif dans la dernière minute du jeu si l'équipe recevant prend un tm, l'équipe adverse n'en prend pas et qu'il y a une différence de point normée de 1 à la 59ème minute.
 
 # Modèle égalité
 
 ```{r}
-data_mod1_egalite <- data_filtre %>% 
+data_mod1_egalite <- data_mod1 %>% 
   filter(statut_59_min == 0)
 
 mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, data = data_mod1_egalite, family = "binomial")
@@ -355,10 +303,6 @@ mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adver
 
 mod_final_egalite <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
 mod_final_egalite
-# coefficients <- coef(mod_final)
-# 
-# proba <- logit_to_prob(coefficients)
-# print(proba)
 ```
 
 # Modèle perdant
@@ -372,10 +316,6 @@ mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_rec
 
 mod_final_perdant <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
 mod_final_perdant 
-# coefficients <- coef(mod_final)
-# 
-# proba <- logit_to_prob(coefficients)
-# print(proba)
 ```
 
 # Modèle gagnant
@@ -389,16 +329,13 @@ mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_rec
 
 mod_final_gagnant <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
 mod_final_gagnant
-# coefficients <- coef(mod_final)
-# 
-# proba <- logit_to_prob(coefficients)
-# print(proba)
 ```
+
 
 ```{r}
 ggcoef_compare(list(mod_final,mod_final_egalite, mod_final_perdant, mod_final_gagnant), exponentiate = TRUE, type = "faceted")
 
-
+pdf("modele_59.pdf", width = 10, height = 7)
 ggcoef_compare(
   list(
     "Modèle global" = mod_final,
@@ -408,11 +345,11 @@ ggcoef_compare(
   ),
   type = "faceted"
 ) +
-  coord_cartesian(xlim = c(-6, 6)) +  # Limiter l'axe des abscisses
+  coord_cartesian(xlim = c(-3,3)) +  # Limiter l'axe des abscisses
   scale_x_continuous(
-    breaks = seq(-6, 6, by = 1),      # Ajouter des ticks tous les 1
-    minor_breaks = seq(-6, 6, by = 0.5)  # Sous-ticks tous les 0.5
+    breaks = seq(-3,3, by = 1),      # Ajouter des ticks tous les 1
+    minor_breaks = seq(-3,3, by = 0.5)  # Sous-ticks tous les 0.5
   )
-
+dev.off()
 ```
 

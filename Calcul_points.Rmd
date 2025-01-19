@@ -348,7 +348,7 @@ df2 %>%
 
 
 
-df_ref_point <- df2 %>% group_by(saison, division, HF, journee) %>% 
+df_ref_point <- data_mod1 %>% group_by(saison, division, HF, journee) %>% 
   summarise(ref_diff_point1 = sd(diff_point, na.rm = TRUE) + mean(diff_point, na.rm = TRUE), .groups = "drop")
 
 
@@ -369,7 +369,7 @@ df_ref_point$ecart_classement <- factor(df_ref_point$ecart_classement, levels = 
 
 df_ref_point %>% 
   mutate(journee_num = as.numeric(str_extract(journee, "[0-9].*"))) %>% 
-  ggplot(aes(x = journee_num, y = ref_diff_point1, color = ecart_classement)) +  # Ajout de 'color = group_diff_point'
+  ggplot(aes(x = journee_num, y = ref_diff_point1, color = group_diff_point)) +  # Ajout de 'color = group_diff_point'
   geom_point(size = 2, alpha = 0.7) +  # Points bien alignés
   labs(title = "Nuage de points des différences de points pour 1 point normé par journée",
        x = "Journée",

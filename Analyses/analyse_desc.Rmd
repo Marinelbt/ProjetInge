@@ -18,11 +18,10 @@ library(tidyr)
 library(stringr)
 library(knitr)
 library(kableExtra)
-
 ```
 
 ```{r}
-df <- read.csv("Data/df_pdfs.csv", stringsAsFactors = T)
+df <- read.csv("../data_final/df_pdfs_final.csv", stringsAsFactors = T, row.names = 1)
 
 colnames(df)
 ```
@@ -117,7 +116,7 @@ p2 <- data[data$action == "Tem", ] %>%
   geom_text(
     stat = "count",
     aes(
-      label = scales::percent(..count.. / tapply(..count.., ..x.., sum)[as.character(..x..)], accuracy = 1)
+      label = scales::percent(after_stat(count) / tapply(after_stat(count), ..x.., sum)[as.character(..x..)], accuracy = 1)
     ),
     position = position_stack(vjust = 0.5),  # Empile les labels au centre des segments
     color = "white",
@@ -142,7 +141,10 @@ ggarrange(p1, p2, widths = c(2, 1))
 ```
  
 ```{r}
-nb_tm_derniere_minute
+nb_tm_derniere_minute <- data %>%
+  filter(Temps_Sec >= 59*60) %>% 
+  filter(action == "Tem") %>% 
+  nrow()
 
 nb_tm <- data %>% 
   filter(action == "Tem") %>%
@@ -241,7 +243,10 @@ p_combined <- ggplot(combined_data1, aes(x = as.factor(difference_points), y = p
     legend.title = element_text(size = 14),              # Taille du titre de la légende
     legend.text = element_text(size = 12),               # Taille des éléments de la légende
     legend.position = c(0.85, 0.85),                     # Position de la légende (x, y)
-    legend.justification = c(1, 1)                       # Alignement en haut à droite
+    legend.justification = c(1, 1)
+  ) +
+  scale_x_discrete(
+    breaks = as.character(seq(0, 30, by = 1))
   )
 p_combined
 
@@ -378,7 +383,11 @@ p_taux_r <- ggplot(taux_temps_morts_r, aes(x = as.factor(difference_points), y =
     x = "Écart de points",
     y = "Taux de Temps-Morts pris à la derière minute"
   ) +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    plot.margin = margin(20, 20, 40, 20),  # Augmenter l'espace en bas (ou autres côtés si nécessaire)
+    plot.title = element_text(size = 14)  # Centrer le titre et ajuster la taille
+  )
 
 p_taux_r
 
@@ -400,7 +409,11 @@ p_taux_v <- ggplot(taux_temps_morts_v, aes(x = as.factor(difference_points), y =
     x = "Écart de points",
     y = "Taux de Temps-Morts pris à la derière minute"
   ) +
-  theme_minimal()
+  theme_minimal()+
+  theme(
+    plot.margin = margin(20, 20, 40, 20),  # Augmenter l'espace en bas (ou autres côtés si nécessaire)
+    plot.title = element_text( size = 14)  # Centrer le titre et ajuster la taille
+  )
 
 p_taux_v
 
@@ -597,7 +610,7 @@ score_moyen <- score_moyen_r %>%
 #effets positifs 
 
 ```{r}
-data <- read.table("Data/df_pdfs.csv", header = TRUE, sep = ",")
+data <- read.table("../data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
 
 data <- data %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
