@@ -130,7 +130,7 @@ data_mod1 <- data %>%
   ungroup()  %>% 
   filter (saison != 2425)
 
-# One ne garde que l'équipe recevante 
+# On ne garde que l'équipe recevante 
 data_mod1 <- data_mod1 %>%
   filter(equipe == "R") %>% 
   filter(statut_59_min != 0 | statut_final != 0)
@@ -299,7 +299,7 @@ data_mod1_egalite <- data_mod1 %>%
   filter(statut_59_min == 0)
 
 mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, data = data_mod1_egalite, family = "binomial")
-#summary(mod1)
+summary(mod1)
 
 mod_final_egalite <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
 mod_final_egalite
@@ -308,7 +308,7 @@ mod_final_egalite
 # Modèle perdant
 
 ```{r}
-data_mod1_perdant <- data_filtre %>% 
+data_mod1_perdant <- data_mod1 %>% 
   filter(statut_59_min == -1)
 
 mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + ecart_classement, data = data_mod1_perdant, family = "binomial")
@@ -321,7 +321,7 @@ mod_final_perdant
 # Modèle gagnant
 
 ```{r}
-data_mod1_gagnant <- data_filtre %>% 
+data_mod1_gagnant <- data_mod1 %>% 
   filter(statut_59_min == 1)
 
 mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + ecart_classement, data = data_mod1_gagnant, family = "binomial")
@@ -345,10 +345,14 @@ ggcoef_compare(
   ),
   type = "faceted"
 ) +
-  coord_cartesian(xlim = c(-3,3)) +  # Limiter l'axe des abscisses
+  coord_cartesian(xlim = c(-2,2)) +  # Limiter l'axe des abscisses
   scale_x_continuous(
-    breaks = seq(-3,3, by = 1),      # Ajouter des ticks tous les 1
-    minor_breaks = seq(-3,3, by = 0.5)  # Sous-ticks tous les 0.5
+    breaks = seq(-2,2, by = 1),     # Ajouter des ticks tous les 1
+    minor_breaks = seq(-2,2, by = 0.5)  # Sous-ticks tous les 0.5
+  )  +
+  theme(
+    panel.grid.major.x = element_line(color = "grey80", linetype = "longdash"),
+    panel.grid.minor.x = element_line(color = "grey90", linetype = "longdash") # Ajouter les lignes pointillées pour les sous-ticks
   )
 dev.off()
 ```
