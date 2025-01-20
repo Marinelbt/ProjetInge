@@ -17,6 +17,7 @@ library(dplyr)
 library(tidyverse)
 library(ggplot2)
 library(RcmdrMisc)
+library(GGally)
 ```
 
 # Import données
@@ -336,4 +337,30 @@ summary(mod2)
 
 mod_final_gagnant <- stepwise(mod2, direction = "backward/forward", criterion = "AIC")
 mod_final_gagnant
+```
+
+
+```{r}
+ggcoef_compare(list(mod_final,mod_final_egalite, mod_final_perdant, mod_final_gagnant), exponentiate = TRUE, type = "faceted")
+
+pdf("modele_29.pdf", width = 10, height = 7)
+ggcoef_compare(
+  list(
+    "Modèle global" = mod_final,
+    "Modèle égalité" = mod_final_egalite,
+    "Modèle perdant" = mod_final_perdant,
+    "Modèle gagnant" = mod_final_gagnant
+  ),
+  type = "faceted"
+) +
+  coord_cartesian(xlim = c(-1.5,1.5)) +  # Limiter l'axe des abscisses
+  scale_x_continuous(
+    breaks = seq(-1.5,1.5, by = 1),     # Ajouter des ticks tous les 1
+    minor_breaks = seq(-1.5,1.5, by = 0.5)  # Sous-ticks tous les 0.5
+  )  +
+  theme(
+    panel.grid.major.x = element_line(color = "grey80", linetype = "longdash"),
+    panel.grid.minor.x = element_line(color = "grey90", linetype = "longdash") # Ajouter les lignes pointillées pour les sous-ticks
+  )
+dev.off()
 ```
