@@ -21,6 +21,7 @@ library(GGally)
 library(cvTools)
 library(pROC)
 library(caret)
+library(rsample)
 ```
 
 
@@ -125,7 +126,7 @@ data_mod1 <- data %>%
       grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
     )
   ) %>% 
-  select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min)) %>% 
+  dplyr::select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min)) %>% 
   ungroup()  %>% 
   filter (saison != 2425)
 
@@ -160,7 +161,7 @@ diff_norme <- read.csv("../data_final/data_diff_norme_final.csv", row.names = 1)
 diff_norme$saison <- factor(diff_norme$saison)
 
 data_mod1 <- data_mod1 %>% 
-  select(-c("journee","division","HF")) %>% 
+  dplyr::select(-c("journee","division","HF","saison")) %>% 
   left_join(diff_norme, by = join_by(code_rencontre)) %>% 
   drop_na()
 ```
@@ -255,7 +256,6 @@ for (k in 1:10) {
 
 
 ```{r}
-
 train_control <- trainControl(
   method = "cv",  
   number = 20 
@@ -263,54 +263,54 @@ train_control <- trainControl(
 
 set.seed(123)  
 model <- train(
-  effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement,
+  effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement + statut_59_min,
   data = train_data,   
   method = "glm", 
   family = "binomial",
-  trControl = train_control,
-  metric = "Accuracy"  
+  trControl = train_control
 )
 
 print(model)
 
-pred_prob <- predict(model, newdata = test_data, type = "prob")
-pred_class <- ifelse(pred_prob[, "1"] > 0.5, 1, 0)
+pred_prob <- predict(model, type = "prob")
 
-accuracy <- mean(test_data$effet_positif == pred_class)
-confusion <- table(test_data$effet_positif, pred_class)
+roc_curve <- roc(train_data$effet_positif, pred_prob[, "1"])
+plot(roc_curve,print.auc = TRUE, legacy.axes = TRUE)
+
+# Trouver le seuil optimal
+optimal_threshold <- coords(roc_curve, "best", ret = "threshold")
+print(paste("Seuil optimal:", optimal_threshold))
+pred_class <- ifelse(pred_prob[, "1"] > optimal_threshold[1,1], 1, 0)
+
+accuracy <- mean(train_data$effet_positif == pred_class)
+confusion <- table(train_data$effet_positif, pred_class)
 #auc <- auc(test_data$effet_positif, pred_prob)
 
 print("Table de confusion:")
 print(confusion)
 print(paste("Accuracy sur test_data:", accuracy))
 #print(paste("AUC sur test_data:", auc))
-
 ```
 
-# Chercher le meilleur seuil avec courbe ROC
-
-```{r}
-# Utiliser la fonction roc de la librairie pROC pour calculer la courbe ROC
-library(pROC)
-roc_curve <- roc(test_data$effet_positif, pred_prob[, "1"])
-plot(roc_curve)
-
-# Trouver le seuil optimal
-optimal_threshold <- coords(roc_curve, "best", ret = "threshold")
-print(paste("Seuil optimal:", optimal_threshold))
-
-# Appliquer ce seuil pour prédire les classes
-pred_class <- ifelse(pred_prob[, "1"] > optimal_threshold[1,1], 1, 0)
-
-```
 
 # Random forest avec caret
 
 ```{r}
 train_control <- trainControl(
   method = "cv",  
-  number = 10 
+  number = 20 
 )
+
+indices <- sample(1:nrow(data_mod1), size = nrow(data_mod1), replace = FALSE)
+
+train_size <- floor(0.8 * length(indices))  # 80% des données pour l'entraînement
+test_size <- floor(0.2 * length(indices))  # 20% des données pour le test
+
+train_indices <- indices[1:train_size]
+test_indices <- indices[(train_size + 1):(train_size + test_size)]
+
+train_data <- data_mod1[train_indices, ]
+test_data <- data_mod1[test_indices, ]
 
 set.seed(123)  
 model <- train(
@@ -323,23 +323,38 @@ model <- train(
 
 print(model)
 
-pred_prob <- predict(model, newdata = test_data, type = "prob")
+pred_prob <- predict(model, type = "prob")
 
-roc_curve <- roc(test_data$effet_positif, pred_prob[, "1"])
-plot(roc_curve)
+roc_curve <- roc(train_data$effet_positif, pred_prob[, "1"])
+plot(roc_curve,print.auc = TRUE, legacy.axes = TRUE)
 
 # Trouver le seuil optimal
 optimal_threshold <- coords(roc_curve, "best", ret = "threshold")
 print(paste("Seuil optimal:", optimal_threshold))
 pred_class <- ifelse(pred_prob[, "1"] > optimal_threshold[1,1], 1, 0)
 
-accuracy <- mean(test_data$effet_positif == pred_class)
-confusion <- table(test_data$effet_positif, pred_class)
+accuracy <- mean(train_data$effet_positif == pred_class)
+confusion <- table(train_data$effet_positif, pred_class)
 #auc <- auc(test_data$effet_positif, pred_prob)
 
 print("Table de confusion:")
 print(confusion)
 print(paste("Accuracy sur test_data:", accuracy))
 #print(paste("AUC sur test_data:", auc))
+```
+
+# LDA/QDA
+
+```{r}
+library(MASS)
+
+# Modèle LDA
+modele_lda <- qda(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement + statut_59_min, 
+                  data = train_data)
+
+# Prédictions
+predictions <- predict(modele_lda, newdata = test_data)$class
+accuracy <- mean(test_data$effet_positif == predictions)
+print(paste("Accuracy : ", accuracy))
 ```
 

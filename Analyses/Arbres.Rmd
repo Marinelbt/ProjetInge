@@ -69,59 +69,12 @@ rpart.plot(tree)
 pdf("arbre_1.pdf", width = 10, height = 7)
 rpart.plot(tree)
 dev.off()
-
-# Prédictions sur les données d'entraînement
-pred_train <- predict(tree, newdata = data.test, type = "class")
-
-# Calcul du taux de précision
-mean(pred_train == data.test$effet_positif)
-
-confusionMatrix(pred_train, data.test$effet_positif)
 ```
 
 Analyse d'une feuille (0, 0.15, 43%) :
 La classe majoritaire choisie est pas d'effet positif pour le recevant (0)
 Cette classe représente 15% de la feuille.
 Cette feuille contient 43% du jeu de données.
-
-# Arbre gagnant
-
-```{r}
-set.seed(123)
-data_g <- data_mod1 %>% filter(statut_59_min == -1)
-
-data.split.g <- initial_split(data_mod1, prop = 0.80)
-data.train.g <- training(data.split.g)
-data.test.g <- testing(data.split.g)
-
-ctrl <- trainControl(method = "cv", number = 10)
-
-# Entraîner l'arbre avec validation croisée
-cv_tree <- train(
-  effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, 
-  data = data.train.g, 
-  method = "rpart",
-  trControl = ctrl
-)
-
-# Résultats de la validation croisée
-print(cv_tree)
-
-tree <- rpart(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement,
-              data = data.train.g,
-              method = "class",
-              control = rpart.control(maxdepth = 30, minsplit = 1, cp =  cv_tree$bestTune))
-
-rpart.plot(tree)
-
-# Prédictions sur les données d'entraînement
-pred_train <- predict(tree, newdata = data.test.g, type = "class")
-
-# Calcul du taux de précision
-mean(pred_train == data.test.g$effet_positif)
-
-confusionMatrix(pred_train, data.test.g$effet_positif)
-```
 
 
 ```{r}
@@ -132,4 +85,26 @@ data.test$effet_positif <- factor(data.test$effet_positif, levels = levels(predi
 confusionMatrix(prediction, data.test$effet_positif)
 ```
 
+# Foret aléatoire
+
+```{r}
+library(randomForest)
+
+# Modèle forêt aléatoire
+modele_rf <- randomForest(effet_positif ~ statut_59_min, data = train_data)
+
+# Importance des variables
+importance(modele_rf)
+
+# Prédictions
+predictions <- predict(modele_rf, newdata = test_data)
+table(Predicted = predictions, Actual = test_data$effet_positif)
+
+library(pROC)
+
+roc_curve <- roc(test_data$effet_positif, as.numeric(predictions))
+plot(roc_curve,print.auc = TRUE, legacy.axes = TRUE)
+auc(roc_curve)
+
+```
 

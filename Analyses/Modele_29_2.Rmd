@@ -286,6 +286,7 @@ ggplot(data.frame(Var = factor(names(table(data_mod2$group_diff_point)), levels 
 
 ```{r}
 # contrasts(data_mod2$ecart_classement) <- contr.sum(nlevels(data_mod2$ecart_classement))
+data_mod2$ecart_classement <- relevel(data_mod2$ecart_classement, ref = 2)
 ```
 
 

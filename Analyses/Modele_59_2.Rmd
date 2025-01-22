@@ -66,7 +66,7 @@ data_mod1 <- data %>%
               ),
             .groups = "drop"
             ) %>%
-  filter(abs(score_recevant_59_min - score_visiteur_59_min) <= 3) %>% 
+  filter(abs(score_recevant_59_min - score_visiteur_59_min) < 3) %>% 
   pivot_longer(
     cols = c(statut_59_min_r, statut_59_min_v), 
     names_to = "equipe", 
@@ -172,8 +172,12 @@ data_mod1 %>%
   geom_density() +
   theme_minimal()
 
+quantiles <- quantile(data_mod1$diff_point_norm, probs = c(0, 1/3, 2/3, 1))
+
+print(quantiles)
+
 data_mod1$group_diff_point <- cut(data_mod1$diff_point_norm,
-                                  breaks = c(-Inf, -0.5, 0.5, Inf),
+                                  breaks = quantiles,
                                   labels = c("moins fort","meme niveau","plus fort"),
                                   include.lowest = T)
 table(data_mod1$group_diff_point)
@@ -204,6 +208,13 @@ data_mod1 %>%
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
+
+# Séparer par période de 20 sec
+
+```{r}
+head(data_mod1)
+```
+
 
 
 # Analyse descriptive
@@ -275,6 +286,8 @@ ggplot(data.frame(Var = factor(names(table(data_mod1$group_diff_point)), levels 
 
 ```{r}
 #contrasts(data_mod1$ecart_classement) <- contr.sum(nlevels(data_mod1$ecart_classement))
+data_mod1$ecart_classement <- relevel(data_mod1$ecart_classement, ref = 2)
+data_mod1$HF <- relevel(data_mod1$HF, ref = 'H')
 ```
 
 # Modèle global
@@ -298,7 +311,7 @@ ggcoef_model(mod_final, exponentiate = TRUE)
 data_mod1_egalite <- data_mod1 %>% 
   filter(statut_59_min == 0)
 
-mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, data = data_mod1_egalite, family = "binomial")
+mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement + HF, data = data_mod1_egalite, family = "binomial")
 summary(mod1)
 
 mod_final_egalite <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
@@ -311,7 +324,7 @@ mod_final_egalite
 data_mod1_perdant <- data_mod1 %>% 
   filter(statut_59_min == -1)
 
-mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + ecart_classement, data = data_mod1_perdant, family = "binomial")
+mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + ecart_classement + HF, data = data_mod1_perdant, family = "binomial")
 #summary(mod1)
 
 mod_final_perdant <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
@@ -324,7 +337,7 @@ mod_final_perdant
 data_mod1_gagnant <- data_mod1 %>% 
   filter(statut_59_min == 1)
 
-mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + ecart_classement, data = data_mod1_gagnant, family = "binomial")
+mod1 <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + club_recevant + DM_adverse + DM + ecart_classement + HF, data = data_mod1_gagnant, family = "binomial")
 #summary(mod1)
 
 mod_final_gagnant <- stepwise(mod1, direction = "backward/forward", criterion = "AIC")
@@ -333,14 +346,13 @@ mod_final_gagnant
 
 
 ```{r}
-ggcoef_compare(list(mod_final,mod_final_egalite, mod_final_perdant, mod_final_gagnant), exponentiate = TRUE, type = "faceted")
+ggcoef_compare(list(mod_final_perdant, mod_final_egalite, mod_final_gagnant), exponentiate = TRUE, type = "faceted")
 
-pdf("modele_59.pdf", width = 10, height = 7)
+pdf("../Documents/modele_59.pdf", width = 10, height = 7)
 ggcoef_compare(
   list(
-    "Modèle global" = mod_final,
-    "Modèle égalité" = mod_final_egalite,
     "Modèle perdant" = mod_final_perdant,
+    "Modèle égalité" = mod_final_egalite,
     "Modèle gagnant" = mod_final_gagnant
   ),
   type = "faceted"
