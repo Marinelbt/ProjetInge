@@ -21,7 +21,7 @@ library(kableExtra)
 ```
 
 ```{r}
-df <- read.csv("../data_final/df_pdfs_final.csv", stringsAsFactors = T, row.names = 1)
+df <- read.csv("data_final/df_pdfs_final.csv", stringsAsFactors = T, row.names = 1)
 
 colnames(df)
 ```
@@ -57,6 +57,8 @@ data$statut_action <- with(data,
                               # Sinon, garder la valeur d'origine
                               as.character(statut_recevant))
 )
+
+write_csv(data, "/Users/marine/Desktop/ACO M2 /ProjetInge/Appli/data/data_descr.csv")
 
 
 ```
@@ -610,7 +612,7 @@ score_moyen <- score_moyen_r %>%
 #effets positifs 
 
 ```{r}
-data <- read.table("../data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
+data <- read.table("data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
 
 data <- data %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
@@ -732,6 +734,8 @@ data_summary <- data_mod1 %>%
   mutate(
     label_texte = ifelse(effet == "positif", paste0(round(pourcentage_positif, 1), "%", fleche), "")
   )
+
+write_csv(data_summary, "/Users/marine/Desktop/ACO M2 /ProjetInge/Appli/data/data_descr_effetpos.csv")
 
 
 # Création du diagramme
