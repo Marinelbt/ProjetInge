@@ -28,7 +28,7 @@ library(rsample)
 #Jeu de données initial
 
 ```{r}
-data <- read.csv("../data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
+data <- read.csv("data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
 
 data <- data %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
@@ -127,8 +127,7 @@ data_mod1 <- data %>%
     )
   ) %>% 
   dplyr::select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min)) %>% 
-  ungroup()  %>% 
-  filter (saison != 2425)
+  ungroup()
 
 # One ne garde que l'équipe recevante 
 data_mod1 <- data_mod1 %>%
@@ -157,7 +156,7 @@ data_mod1$division <- factor(data_mod1$division)
 # Ajout de la variable différence de point
 
 ```{r}
-diff_norme <- read.csv("../data_final/data_diff_norme_final.csv", row.names = 1)
+diff_norme <- read.csv("data_final/data_diff_norme_final.csv", row.names = 1)
 diff_norme$saison <- factor(diff_norme$saison)
 
 data_mod1 <- data_mod1 %>% 
@@ -213,47 +212,14 @@ data_mod1 %>%
 # Sous-jeux de données 
 
 ```{r}
-set.seed(123)  
+train_data <- data_mod1 %>% 
+  filter(saison != "2425")
 
-indices <- sample(1:nrow(data_mod1), size = nrow(data_mod1), replace = FALSE)
-
-train_size <- floor(0.8 * length(indices))  # 80% des données pour l'entraînement
-test_size <- floor(0.2 * length(indices))  # 20% des données pour le test
-
-train_indices <- indices[1:train_size]
-test_indices <- indices[(train_size + 1):(train_size + test_size)]
-
-train_data <- data_mod1[train_indices, ]
-test_data <- data_mod1[test_indices, ]
+test_data <- data_mod1 %>% 
+  filter(saison == "2425")
 ```
 
-#validation croisée à la main
-
-```{r}
-
-k <- 10
-segments <- cvFolds(n = nrow(train_data), K = k, type = "random")
-resultats <- data.frame(Segment = integer(), Accuracy = numeric(), AUC = numeric())
-cvpred <- rep(0,times=nrow(train_data))
-
-for (k in 1:10) {
-  test_indices <- which(segments$which == k)
-  train <- train_data[-test_indices, ]
-  valid <- train_data[test_indices, ]
-  
-  modele <- glm(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement, 
-            data = train, family = "binomial")
-  select <- stepwise(modele, direction = "backward/forward", criterion = "BIC")
-  modele <- glm(formula(select), data = train, family = "binomial")
-  probabilites <- predict(modele, newdata = valid, type = "response")
-  predictions <- ifelse(probabilites > 0.5, 1, 0)
-  cvpred[test_indices] <- predictions
-  print(k)
-}
-```
-
-# avec caret 
-
+# régression logistique avec caret
 
 ```{r}
 train_control <- trainControl(
@@ -301,29 +267,18 @@ train_control <- trainControl(
   number = 20 
 )
 
-indices <- sample(1:nrow(data_mod1), size = nrow(data_mod1), replace = FALSE)
-
-train_size <- floor(0.8 * length(indices))  # 80% des données pour l'entraînement
-test_size <- floor(0.2 * length(indices))  # 20% des données pour le test
-
-train_indices <- indices[1:train_size]
-test_indices <- indices[(train_size + 1):(train_size + test_size)]
-
-train_data <- data_mod1[train_indices, ]
-test_data <- data_mod1[test_indices, ]
-
 set.seed(123)  
-model <- train(
-  effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement,
+model_rf <- train(
+  effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement + statut_59_min,
   data = train_data,   
   method = "rf", 
   family = "binomial",
   trControl = train_control
 )
 
-print(model)
+print(model_rf)
 
-pred_prob <- predict(model, type = "prob")
+pred_prob <- predict(model_rf, type = "prob")
 
 roc_curve <- roc(train_data$effet_positif, pred_prob[, "1"])
 plot(roc_curve,print.auc = TRUE, legacy.axes = TRUE)
@@ -357,4 +312,33 @@ predictions <- predict(modele_lda, newdata = test_data)$class
 accuracy <- mean(test_data$effet_positif == predictions)
 print(paste("Accuracy : ", accuracy))
 ```
+
+# Test sur un match qui ne s'est pas necore produit 
+
+```{r}
+
+pred_prob <- predict(model_rf, type = "prob")
+
+roc_curve <- roc(train_data$effet_positif, pred_prob[, "1"])
+plot(roc_curve,print.auc = TRUE, legacy.axes = TRUE)
+
+# Trouver le seuil optimal
+optimal_threshold <- coords(roc_curve, "best", ret = "threshold")
+print(paste("Seuil optimal:", optimal_threshold))
+pred_class <- ifelse(pred_prob[, "1"] > optimal_threshold[1,1], 1, 0)
+
+accuracy <- mean(train_data$effet_positif == pred_class)
+confusion <- table(train_data$effet_positif, pred_class)
+#auc <- auc(test_data$effet_positif, pred_prob)
+
+print("Table de confusion:")
+print(confusion)
+print(paste("Accuracy sur test_data:", accuracy))
+#print(paste("AUC sur test_data:", auc))
+
+```
+
+
+
+
 

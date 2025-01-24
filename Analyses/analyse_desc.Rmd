@@ -9,6 +9,9 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Importations 
+
+
 ```{r}
 library(readr)
 library(ggplot2)
@@ -21,20 +24,43 @@ library(kableExtra)
 ```
 
 ```{r}
-df <- read.csv("data_final/df_pdfs_final.csv", stringsAsFactors = T, row.names = 1)
+data <- read.csv("data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
 
-colnames(df)
+data <- data %>%
+  separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
+  mutate(
+    score_final_r = as.integer(score_final_r),
+    score_final_v = as.integer(score_final_v)
+  ) %>%
+  group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur, journee, score_final_r, score_final_v, fichier) %>%
+  mutate(
+    temps_proche_59_min = max(Temps_Sec[Temps_Sec < 59 * 60], na.rm = TRUE),
+    statut_59_min_r = first(statut_recevant[Temps_Sec == temps_proche_59_min]),
+    statut_59_min_v = -statut_59_min_r,
+    score_recevant_59_min = first(score_recevant[Temps_Sec == temps_proche_59_min]),
+    score_visiteur_59_min = first(score_visiteur[Temps_Sec == temps_proche_59_min])
+  ) %>%
+  ungroup() %>% 
+  mutate(difference_points = abs(score_recevant - score_visiteur),
+         saison = case_when(
+           grepl("2021", fichier, ignore.case = TRUE) ~ "2021",
+           grepl("2122", fichier, ignore.case = TRUE) ~ "2122",
+           grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
+           grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+         )) %>% 
+  filter(saison != 2425)
+
+data$statut_recevant <- as.factor(data$statut_recevant)
+
 ```
 
-```{r}
-str(df)
-df$statut_recevant <- as.factor(df$statut_recevant)
 
-```
-
-# Regrouper par période
+# Diagramme nombre de TM par période et par statut
 ```{r}
-data <- df %>%
+
+data_descr_1 <- data %>%
+  filter(abs(score_final_r - score_final_v) <= 2) %>% 
+  filter(score_recevant_59_min != score_visiteur_59_min | score_final_r != score_final_v) %>% 
   group_by(fichier) %>%
   mutate(
     periode = case_when(
@@ -48,37 +74,22 @@ data <- df %>%
     )
   ) %>%
   ungroup()
-data$statut_action <- ""
-data$statut_action <- with(data,
-                       ifelse(action_equipe == "v",
-                              # Inverser les valeurs
-                              ifelse(as.character(statut_recevant) == "-1", "1",
-                                     ifelse(as.character(statut_recevant) == "1", "-1", "0")),
-                              # Sinon, garder la valeur d'origine
-                              as.character(statut_recevant))
-)
 
-write_csv(data, "/Users/marine/Desktop/ACO M2 /ProjetInge/Appli/data/data_descr.csv")
-
-
-```
-
-
-# Diagramme nombre de TM par période et par statut
-```{r}
-
-data_pourcentage <- data[data$action == "Tem", ] %>%
+data_pourcentage <- data_descr_1 %>%
+  filter(action == "Tem" & action_equipe == "r") %>% 
   group_by(periode) %>%
   summarise(total_periode = n()) %>%
   mutate(pourcentage = total_periode / sum(total_periode) * 100)
 
 
 if (!"pourcentage" %in% colnames(data)) {
-  data <- data %>%
+  data_descr_1 <- data_descr_1 %>%
     left_join(data_pourcentage, by = "periode")
 }
 
-p1 <- ggplot(data = data[data$action == "Tem", ], aes(x = as.factor(periode), fill = statut_action)) +
+p1 <- data_descr_1 %>%
+  filter(action == "Tem" & action_equipe == "r") %>% 
+  ggplot(aes(x = as.factor(periode), fill = statut_recevant)) +
   geom_bar() +
   geom_text(
     aes(
@@ -90,7 +101,7 @@ p1 <- ggplot(data = data[data$action == "Tem", ], aes(x = as.factor(periode), fi
     inherit.aes = FALSE,  # Empêche l'héritage des esthétiques globales
     vjust = -0.5,  # Place le texte au-dessus des barres
     color = "black",
-    size = 3
+    size = 5  # Taille du texte des pourcentages
   ) +
   geom_vline(
     xintercept = 3.5,  # Position entre la période 3 et la période 4 (ligne verticale entre 3 et 4)
@@ -108,12 +119,19 @@ p1 <- ggplot(data = data[data$action == "Tem", ], aes(x = as.factor(periode), fi
     values = c("-1" = "indianred", "0" = "gray", "1" = "darkolivegreen3"),
     labels = c("-1" = "Perd", "0" = "Égalité", "1" = "Gagne")
   ) +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 20, face = "bold"),  # Titre du graphique
+    axis.title = element_text(size = 16),                # Titres des axes
+    axis.text = element_text(size = 14),                 # Textes des axes
+    legend.title = element_text(size = 16),              # Titre de la légende
+    legend.text = element_text(size = 14)                # Texte de la légende
+  )
 
-
-p2 <- data[data$action == "Tem", ] %>%
+p2 <- data_descr_1 %>%
+  filter(action == "Tem" & action_equipe == "r") %>% 
   filter(Temps_Sec >= 59 * 60) %>%
-  ggplot(aes(x = as.factor(periode), fill = statut_action)) +
+  ggplot(aes(x = as.factor(periode), fill = statut_recevant)) +
   geom_bar() +  # Garde les barres en nombre total
   geom_text(
     stat = "count",
@@ -122,7 +140,7 @@ p2 <- data[data$action == "Tem", ] %>%
     ),
     position = position_stack(vjust = 0.5),  # Empile les labels au centre des segments
     color = "white",
-    size = 3
+    size = 5  # Taille des textes des pourcentages
   ) +
   labs(
     title = "Nombre de temps-\nmorts à la dernière \nminute",
@@ -134,22 +152,32 @@ p2 <- data[data$action == "Tem", ] %>%
     values = c("-1" = "indianred", "0" = "gray", "1" = "darkolivegreen3"),
     labels = c("-1" = "Perd", "0" = "Égalité", "1" = "Gagne")
   ) +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 20, face = "bold"),  # Titre du graphique
+    axis.title = element_text(size = 16),                # Titres des axes
+    axis.text = element_text(size = 14),                 # Textes des axes
+    legend.title = element_text(size = 16),              # Titre de la légende
+    legend.text = element_text(size = 14)                # Texte de la légende
+  )
 
-ggarrange(p1, p2, widths = c(2, 1))
+# Combinaison des deux graphiques
+graphique_1 <- ggarrange(p1, p2, widths = c(2, 1))
 
+# Enregistrement avec ggsave
+ggsave("Graphiques/graphique_desc_1.png", plot = graphique_1, width = 10, height = 6, dpi = 300)
 
 
 ```
  
 ```{r}
-nb_tm_derniere_minute <- data %>%
+nb_tm_derniere_minute <- data_descr_1 %>%
   filter(Temps_Sec >= 59*60) %>% 
-  filter(action == "Tem") %>% 
+  filter(action == "Tem" & action_equipe == "r") %>% 
   nrow()
 
-nb_tm <- data %>% 
-  filter(action == "Tem") %>%
+nb_tm <- data_descr_1 %>% 
+  filter(action == "Tem" & action_equipe == "r") %>%
   nrow()
 
 nb_tm 
@@ -162,10 +190,7 @@ nb_tm_derniere_minute * 100 / nb_tm
 
 ```{r}
 
-data1 <- data %>% 
-  mutate(difference_points = abs(score_recevant - score_visiteur))
-
-p3 <- ggplot(data = data1[data1$action == "Tem", ], aes(x = as.factor(difference_points), fill = as.factor(difference_points))) +
+p3 <- ggplot(data = data[data$action == "Tem", ], aes(x = as.factor(difference_points), fill = as.factor(difference_points))) +
   geom_bar(fill = "skyblue") +
   geom_text(
     aes(
@@ -186,7 +211,7 @@ p3 <- ggplot(data = data1[data1$action == "Tem", ], aes(x = as.factor(difference
 
 p3
 
-p3bis <- p3 <- ggplot(data = data1[data1$action == "But", ], aes(x = as.factor(difference_points), fill = as.factor(difference_points))) +
+p3bis <- p3 <- ggplot(data = data[data$action == "But", ], aes(x = as.factor(difference_points), fill = as.factor(difference_points))) +
   geom_bar(fill = "skyblue") +
   geom_text(
     aes(
@@ -207,7 +232,7 @@ p3bis <- p3 <- ggplot(data = data1[data1$action == "But", ], aes(x = as.factor(d
 
 p3bis
 
-distribution_ecarts <- data1 %>%
+distribution_ecarts <- data %>%
   filter(action == "But") %>% 
   group_by(difference_points) %>%
   summarise(count = n()) %>%
@@ -216,7 +241,7 @@ distribution_ecarts <- data1 %>%
     type = "fréqence des écarts de points "
   )
 
-distribution_temps_morts <- data1 %>%
+distribution_temps_morts <- data %>%
   filter(action == "Tem") %>%
   group_by(difference_points) %>%
   summarise(count = n()) %>%
@@ -225,9 +250,9 @@ distribution_temps_morts <- data1 %>%
     type = "fréquence des prises de temps-morts"
   )
 
-combined_data1 <- bind_rows(distribution_ecarts, distribution_temps_morts)
+combined_data <- bind_rows(distribution_ecarts, distribution_temps_morts)
 
-p_combined <- ggplot(combined_data1, aes(x = as.factor(difference_points), y = percentage, fill = type)) +
+p_combined <- ggplot(combined_data, aes(x = as.factor(difference_points), y = percentage, fill = type)) +
   geom_bar(stat = "identity", position = "dodge") +
   scale_y_continuous(labels = scales::percent_format()) +
   labs(
@@ -264,7 +289,9 @@ ks.test((distribution_ecarts$difference_points), (distribution_temps_morts$diffe
 
 ```{r}
 
-p4 <- ggplot(data = data1[data1$action == "Tem" & data$Temps_Sec >= 59*60, ], aes(x = as.factor(difference_points))) +
+p4 <- data %>% 
+  filter(action == "Tem" & Temps_Sec >= 59*60) %>% 
+  ggplot(aes(x = as.factor(difference_points))) +
   geom_bar(fill = "skyblue") +
   geom_text(
     aes(
@@ -291,133 +318,56 @@ theme_minimal()
 p4
 
 
-data2 <- data %>% 
-  filter(Temps_Sec >= 59*60) %>% 
-  mutate(difference_points = abs(score_recevant - score_visiteur))
-
 data3 <- data %>%
   group_by(code_rencontre, club_recevant, coach_recevant, club_visiteur, coach_visiteur) %>%
   summarise(temps_proche_59_min = max(Temps_Sec[Temps_Sec < 59 * 60], na.rm = TRUE),
             score_recevant_59_min = first(score_recevant[Temps_Sec == temps_proche_59_min]),
             score_visiteur_59_min = first(score_visiteur[Temps_Sec == temps_proche_59_min]),
-            difference_points = abs(score_recevant_59_min - score_visiteur_59_min))
-
-distribution_ecarts <- data3 %>%
-  group_by(difference_points) %>%
-  summarise(count = n()) %>%
-  mutate(
-    percentage = count / sum(count),
-    type = "fréquence des écarts de points"
-  )
-
-distribution_temps_morts <- data2 %>%
-  filter(action == "Tem") %>%
-  group_by(difference_points) %>%
-  summarise(count = n()) %>%
-  mutate(
-    percentage = count / sum(count),
-    type = "fréquence des prises de temps-morts"
-  )
-
-combined_data <- bind_rows(distribution_ecarts, distribution_temps_morts)
-
-p_combined <- ggplot(combined_data, aes(x = as.factor(difference_points), y = percentage, fill = type)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  scale_y_continuous(labels = scales::percent_format()) +
-  labs(
-    title = "Distribution des écarts de points et des temps-morts",
-    x = "Écart de points",
-    y = "Pourcentage",
-    fill = "Type"
-  ) +
-  theme_minimal()
-
-p_combined
+            difference_points = abs(score_recevant_59_min - score_visiteur_59_min),
+            TM_derniere_min_r = if_else(
+              any(Temps_Sec >= 59 * 60 & grepl("tem", action, ignore.case = TRUE) & action_equipe == "r"),
+              1, 
+              0
+              ))
 
 
-frequence_ecarts <- data3 %>%
-  group_by(difference_points) %>%
+taux_temps_morts_r <- data3 %>%
+  group_by(difference_points) %>% 
   summarise(
-    total_instances = n()  
-  )
-
-temps_morts_par_ecart_r <- data2 %>%
-  filter(action == "Tem" & action_equipe == "r") %>%  
-  group_by(difference_points) %>%
-  summarise(
-    temps_morts = n()  
-  )
-
-temps_morts_par_ecart_v <- data2 %>%
-  filter(action == "Tem" & action_equipe == "v") %>%  
-  group_by(difference_points) %>%
-  summarise(
-    temps_morts = n()  
-  )
-
-taux_temps_morts_r <- temps_morts_par_ecart_r %>%
-  left_join(frequence_ecarts, by = "difference_points") %>%
-  mutate(
-    taux_temps_morts = temps_morts / total_instances  
-  )
-
-taux_temps_morts_v <- temps_morts_par_ecart_v %>%
-  left_join(frequence_ecarts, by = "difference_points") %>%
-  mutate(
-    taux_temps_morts = temps_morts / total_instances  
-  )
+    taux_temps_morts = mean(TM_derniere_min_r == 1)  # Moyenne des valeurs égales à 1
+  ) %>% 
+  filter(taux_temps_morts != 0)
 
 p_taux_r <- ggplot(taux_temps_morts_r, aes(x = as.factor(difference_points), y = taux_temps_morts)) +
   geom_bar(fill = "skyblue", stat = "identity", show.legend = FALSE) +
   geom_text(
     aes(label = scales::percent(taux_temps_morts, accuracy = 0.1)), 
     vjust = -0.5, 
-    size = 3
+    size = 5
   ) +
     geom_vline(
-    xintercept = 4.5,  
+    xintercept = 3.5,  
     linetype = "dashed",  
     color = "black",  
     size = 1  
    ) +
   labs(
-    title = "Taux de prises de temps-morts du club recevant pendant la dernière minute par écart de points",
-    x = "Écart de points",
+    title = "Taux de prises de temps-morts du club recevant\npendant la dernière minute par écart de score à 59 min",
+    x = "Écart de score à 59 min",
     y = "Taux de Temps-Morts pris à la derière minute"
   ) +
   theme_minimal() +
   theme(
-    plot.margin = margin(20, 20, 40, 20),  # Augmenter l'espace en bas (ou autres côtés si nécessaire)
-    plot.title = element_text(size = 14)  # Centrer le titre et ajuster la taille
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  # Titre du graphique
+    axis.title = element_text(size = 16),                # Titres des axes
+    axis.text = element_text(size = 14),                 # Textes des axes
+    legend.title = element_text(size = 16),              # Titre de la légende
+    legend.text = element_text(size = 14)                # Texte de la légende
   )
 
 p_taux_r
 
-p_taux_v <- ggplot(taux_temps_morts_v, aes(x = as.factor(difference_points), y = taux_temps_morts)) +
-  geom_bar(fill = "skyblue", stat = "identity", show.legend = FALSE) +
-  geom_text(
-    aes(label = scales::percent(taux_temps_morts, accuracy = 0.1)), 
-    vjust = -0.5, 
-    size = 3
-  ) +
-    geom_vline(
-    xintercept = 4.5,  
-    linetype = "dashed",  
-    color = "black",  
-    size = 1  
-   ) +
-  labs(
-    title = "Taux de prises de temps-morts pendant la dernière minute par écart de points à la 59ème minute",
-    x = "Écart de points",
-    y = "Taux de Temps-Morts pris à la derière minute"
-  ) +
-  theme_minimal()+
-  theme(
-    plot.margin = margin(20, 20, 40, 20),  # Augmenter l'espace en bas (ou autres côtés si nécessaire)
-    plot.title = element_text( size = 14)  # Centrer le titre et ajuster la taille
-  )
-
-p_taux_v
+ggsave("Graphiques/graphique_desc_2.png", plot = p_taux_r, width = 10, height = 6, dpi = 300)
 
 
 ```
@@ -584,32 +534,8 @@ data4 %>%
 
 ```
 
-```{r}
 
-score_moyen_r <- data %>% 
- mutate(
-    score_final_r = as.numeric(str_split(score_final, "-", simplify = TRUE)[, 1])
-  ) %>% 
-  group_by(club_recevant) %>% 
-  summarise(score_moyen_r = mean(score_final_r))
-
-score_moyen_v <- data %>% 
- mutate(
-    score_final_v = as.numeric(str_split(score_final, "-", simplify = TRUE)[, 2])
-  ) %>% 
-  group_by(club_recevant) %>% 
-  summarise(score_moyen_v = mean(score_final_v))
-
-score_moyen <- score_moyen_r %>% 
-  left_join(score_moyen_v, by = "club_recevant") %>% 
-  mutate (score_moyen = (score_moyen_r+score_moyen_v)/2, 
-          club = club_recevant) %>% 
-  select(club, score_moyen) %>% 
-  arrange(desc(score_moyen))
-
-```
-
-#effets positifs 
+#effets positifs v1
 
 ```{r}
 data <- read.table("data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
@@ -647,9 +573,10 @@ data_mod1 <- data %>%
               any(Temps_Sec >= 57 * 60 & (grepl("2MN", action, ignore.case = TRUE) | grepl("Dis", action, ignore.case = TRUE)) & action_equipe == "v"),
               1, 
               0
-              )
+              ),
+            .groups = "drop"
             ) %>%
-  filter(abs(score_recevant_59_min - score_visiteur_59_min) <= 3) %>% 
+  filter(abs(score_recevant_59_min - score_visiteur_59_min) < 3) %>% 
   pivot_longer(
     cols = c(statut_59_min_r, statut_59_min_v), 
     names_to = "equipe", 
@@ -697,8 +624,26 @@ data_mod1 <- data %>%
       equipe == "R" & DM_v == 1 ~ 1,
       TRUE ~ 0
     ),
+    division = case_when(
+      grepl("D1", fichier, ignore.case = TRUE) ~ "D1",
+      grepl("D2", fichier, ignore.case = TRUE) ~ "D2",
+      grepl("N1", fichier, ignore.case = TRUE) ~ "N1"
+    ),
+    saison = case_when(
+      grepl("2021", fichier, ignore.case = TRUE) ~ "2021",
+      grepl("2122", fichier, ignore.case = TRUE) ~ "2122",
+      grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
+      grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+    )
   ) %>% 
-  select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min))
+  select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min)) %>% 
+  ungroup()  %>% 
+  filter (saison != 2425)
+
+# On ne garde que l'équipe recevante 
+data_mod1 <- data_mod1 %>%
+  filter(equipe == "R") %>% 
+  filter(statut_59_min != 0 | statut_final != 0)
 
 data_summary <- data_mod1 %>%
   group_by(statut_59_min, TM_derniere_min, TM_derniere_min_adverse) %>%
@@ -773,6 +718,80 @@ plot <- ggplot(data_summary, aes(x = as.factor(statut_59_min), y = count, fill =
 
 plot
 
+
+```
+
+#effets positifs v2 
+
+```{r}
+data_summary <- data_mod1 %>%
+  group_by(statut_59_min, TM_derniere_min, TM_derniere_min_adverse) %>%
+  summarise(
+    positif = sum(effet_positif == 1),
+    total = n(),  # Nombre total de matchs dans chaque groupe
+    .groups = "drop"
+  ) %>%
+  mutate(
+    pourcentage_positif = positif / total * 100,
+    effectif_label = paste0(round(pourcentage_positif, 1), "%\n(", total, ")"),
+    case_TM = case_when(
+      TM_derniere_min == 0 & TM_derniere_min_adverse == 0 ~ 0,
+      TM_derniere_min == 1 & TM_derniere_min_adverse == 0 ~ 1,
+      TM_derniere_min == 0 & TM_derniere_min_adverse == 1 ~ 2,
+      TM_derniere_min == 1 & TM_derniere_min_adverse == 1 ~ 3
+    ),
+    case_TM_desc = factor(
+      case_TM,
+      levels = 0:3,
+      labels = c(
+        "0: TM: Non, TM Adversaire: Non",
+        "1: TM: Oui, TM Adversaire: Non",
+        "2: TM: Non, TM Adversaire: Oui",
+        "3: TM: Oui, TM Adversaire: Oui"
+      )
+    )
+  )
+
+
+plot <- ggplot(data_summary, aes(x = as.factor(case_TM), y = pourcentage_positif, fill = case_TM_desc)) +
+  geom_bar(stat = "identity", width = 0.5, position = position_dodge(width = 0.7), show.legend = TRUE) +  # Barres plus rapprochées
+  geom_text(
+    aes(
+      label = effectif_label,
+      y = pourcentage_positif + 5  # Place le texte au-dessus des barres
+    ),
+    color = "black",
+    size = 4,  # Taille réduite pour plus de lisibilité
+    fontface = "bold"
+  ) +
+  facet_wrap(~statut_59_min, labeller = as_labeller(c("-1" = "Perd", "0" = "Égalité", "1" = "Gagne")), 
+             scales = "free_x") +  # Facettes pour chaque statut
+  scale_fill_manual(
+    values = c("darkolivegreen3", "skyblue", "orange", "indianred"),  # Couleurs personnalisées
+    name = "4 cas différents selon les prises de temps-mort",  # Titre de la légende
+    labels = levels(data_summary$case_TM_desc)  # Description des cas
+  ) +
+  labs(
+    title = "Effets positifs des temps-morts pris à la dernière minute,\nselon le statut à 59 min",
+    x = "4 cas différents selon les prises de temps-mort\n(effectif entre parenthèses)",
+    y = "Pourcentage d'effets positifs"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12),
+    strip.text = element_text(size = 12, face = "bold"),  # Titres des facettes
+    panel.spacing = unit(2, "lines")  # Espace entre les facettes
+  )
+
+plot
+
+ggsave("Graphiques/graphique_desc_3.png", plot = plot, width = 12, height = 6, dpi = 300)
 
 
 ```
