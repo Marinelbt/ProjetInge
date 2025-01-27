@@ -24,7 +24,7 @@ library(kableExtra)
 ```
 
 ```{r}
-data <- read.csv("data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
+data <- read.csv("../data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
 
 data <- data %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
@@ -538,7 +538,7 @@ data4 %>%
 #effets positifs v1
 
 ```{r}
-data <- read.table("data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
+data <- read.table("../data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
 
 data <- data %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
@@ -680,7 +680,7 @@ data_summary <- data_mod1 %>%
     label_texte = ifelse(effet == "positif", paste0(round(pourcentage_positif, 1), "%", fleche), "")
   )
 
-write_csv(data_summary, "/Users/marine/Desktop/ACO M2 /ProjetInge/Appli/data/data_descr_effetpos.csv")
+write_csv(data_summary, "../data/data_descr_effetpos.csv")
 
 
 # Création du diagramme
@@ -733,7 +733,7 @@ data_summary <- data_mod1 %>%
   ) %>%
   mutate(
     pourcentage_positif = positif / total * 100,
-    effectif_label = paste0(round(pourcentage_positif, 1), "%\n(", total, ")"),
+    effectif_label = paste0("(",total,")"),
     case_TM = case_when(
       TM_derniere_min == 0 & TM_derniere_min_adverse == 0 ~ 0,
       TM_derniere_min == 1 & TM_derniere_min_adverse == 0 ~ 1,
@@ -786,12 +786,18 @@ plot <- ggplot(data_summary, aes(x = as.factor(case_TM), y = pourcentage_positif
     legend.title = element_text(size = 14),
     legend.text = element_text(size = 12),
     strip.text = element_text(size = 12, face = "bold"),  # Titres des facettes
-    panel.spacing = unit(2, "lines")  # Espace entre les facettes
+    panel.spacing = unit(2, "lines"),  # Espace entre les facettes
+    panel.grid.major.x = element_line(color = "grey80"),
+    panel.grid.minor.x = element_line(color = "grey90")
+  ) + 
+  scale_y_continuous(
+    breaks = seq(0,100, by = 10),
+    minor_breaks = seq(0,100, by = 2)
   )
 
 plot
 
-ggsave("Graphiques/graphique_desc_3.png", plot = plot, width = 12, height = 6, dpi = 300)
+ggsave("../Graphiques/graphique_desc_3.png", plot = plot, width = 12, height = 6, dpi = 300)
 
 
 ```
