@@ -237,15 +237,17 @@ write.csv(point_jour, "../data_final/point_jour_final.csv")
 ```{r}
 point_jour <- read.csv("../data_final/point_jour_final.csv")
 
+point_jour$saison <- factor(point_jour$saison)
+
 data_point <- data %>% 
   left_join(point_jour, by = c("HF","division","saison", "journee","club_recevant"="club")) %>% 
   mutate(points_recevant = points) %>% 
-  select(-c(match_joue, total_point, points))
+  dplyr::select(-c(match_joue, total_point, points))
 
 data_point <- data_point %>% 
   left_join(point_jour, by = c("HF","division","saison", "journee","club_visiteur"="club")) %>% 
   mutate(points_visiteur = points) %>% 
-  select(-c(match_joue, total_point, points))
+  dplyr::select(-c(match_joue, total_point, points))
 
 data_point <- data_point %>% 
   mutate (diff_point = points_recevant - points_visiteur)
@@ -261,13 +263,13 @@ for (i in 1:nrow(data_point)){
 }
 
 data_diff_norme <- data_point %>%
-  select(saison, division, HF, journee, code_rencontre, diff_point, diff_point_norm) %>% 
+  dplyr::select(saison, division, HF, journee, code_rencontre, diff_point, diff_point_norm) %>% 
   na.omit()
 ```
 
 # Enregistrement data_diff_point_norme
 
 ```{r}
-write.csv(data_diff_norme, "data_diff_norme_final.csv")
+write.csv(data_diff_norme, "../data_final/data_diff_norme_final.csv")
 ```
 
