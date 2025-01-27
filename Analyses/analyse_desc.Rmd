@@ -46,7 +46,8 @@ data <- data %>%
            grepl("2021", fichier, ignore.case = TRUE) ~ "2021",
            grepl("2122", fichier, ignore.case = TRUE) ~ "2122",
            grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
-           grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+           grepl("2324", fichier, ignore.case = TRUE) ~ "2324",
+           grepl("2425", fichier, ignore.case = TRUE) ~ "2425"
          )) %>% 
   filter(saison != 2425)
 
@@ -165,7 +166,7 @@ p2 <- data_descr_1 %>%
 graphique_1 <- ggarrange(p1, p2, widths = c(2, 1))
 
 # Enregistrement avec ggsave
-ggsave("Graphiques/graphique_desc_1.png", plot = graphique_1, width = 10, height = 6, dpi = 300)
+ggsave("../Graphiques/graphique_desc_1.png", plot = graphique_1, width = 10, height = 6, dpi = 300)
 
 
 ```
@@ -336,7 +337,8 @@ taux_temps_morts_r <- data3 %>%
   summarise(
     taux_temps_morts = mean(TM_derniere_min_r == 1)  # Moyenne des valeurs égales à 1
   ) %>% 
-  filter(taux_temps_morts != 0)
+  filter(taux_temps_morts != 0) %>% 
+  ungroup()
 
 p_taux_r <- ggplot(taux_temps_morts_r, aes(x = as.factor(difference_points), y = taux_temps_morts)) +
   geom_bar(fill = "skyblue", stat = "identity", show.legend = FALSE) +
@@ -367,7 +369,7 @@ p_taux_r <- ggplot(taux_temps_morts_r, aes(x = as.factor(difference_points), y =
 
 p_taux_r
 
-ggsave("Graphiques/graphique_desc_2.png", plot = p_taux_r, width = 10, height = 6, dpi = 300)
+ggsave("../Graphiques/graphique_desc_2.png", plot = p_taux_r, width = 10, height = 6, dpi = 300)
 
 
 ```
@@ -736,8 +738,8 @@ data_summary <- data_mod1 %>%
     effectif_label = paste0("(",total,")"),
     case_TM = case_when(
       TM_derniere_min == 0 & TM_derniere_min_adverse == 0 ~ 0,
-      TM_derniere_min == 1 & TM_derniere_min_adverse == 0 ~ 1,
-      TM_derniere_min == 0 & TM_derniere_min_adverse == 1 ~ 2,
+      TM_derniere_min == 0 & TM_derniere_min_adverse == 1 ~ 1,
+      TM_derniere_min == 1 & TM_derniere_min_adverse == 0 ~ 2,
       TM_derniere_min == 1 & TM_derniere_min_adverse == 1 ~ 3
     ),
     case_TM_desc = factor(
@@ -745,8 +747,8 @@ data_summary <- data_mod1 %>%
       levels = 0:3,
       labels = c(
         "0: TM: Non, TM Adversaire: Non",
-        "1: TM: Oui, TM Adversaire: Non",
-        "2: TM: Non, TM Adversaire: Oui",
+        "1: TM: Non, TM Adversaire: Oui",
+        "2: TM: Oui, TM Adversaire: Non",
         "3: TM: Oui, TM Adversaire: Oui"
       )
     )
@@ -767,7 +769,7 @@ plot <- ggplot(data_summary, aes(x = as.factor(case_TM), y = pourcentage_positif
   facet_wrap(~statut_59_min, labeller = as_labeller(c("-1" = "Perd", "0" = "Égalité", "1" = "Gagne")), 
              scales = "free_x") +  # Facettes pour chaque statut
   scale_fill_manual(
-    values = c("darkolivegreen3", "skyblue", "orange", "indianred"),  # Couleurs personnalisées
+    values = c("darkorange4", "darkorange", "darkolivegreen1", "darkolivegreen"),  # Couleurs personnalisées
     name = "4 cas différents selon les prises de temps-mort",  # Titre de la légende
     labels = levels(data_summary$case_TM_desc)  # Description des cas
   ) +

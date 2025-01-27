@@ -28,7 +28,7 @@ library(rsample)
 #Jeu de données initial
 
 ```{r}
-data <- read.csv("data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
+data <- read.csv("../data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
 
 data <- data %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%

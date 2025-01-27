@@ -1,6 +1,6 @@
 library(dplyr)
 
-source("fonction_traitement_pdf.R")
+source("Script_data/fonction_traitement_pdf.R")
 
 traiter_dossier_pdf <- function(dossier_pdf, df_existant = NULL) {
   # Obtenir la liste des fichiers pdf du dossier
@@ -76,7 +76,7 @@ traiter_dossier_pdf <- function(dossier_pdf, df_existant = NULL) {
 }
 
 
-df <- traiter_dossier_pdf("N1")
+df <- traiter_dossier_pdf("pdf")
 
 # Enregistrer le dataframe final dans un fichier csv
-write.csv(df, "df_pdfs_N1.csv", row.names = FALSE)  
+write.csv(df, "data_final/df_pdfs_final.csv", row.names = FALSE)  
