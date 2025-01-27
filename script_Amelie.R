@@ -464,7 +464,7 @@ write.csv(data_mod1_p3, "data_59_p3.csv")
 ########## Analyse ##########
 
 #### p1 gagnant
-data_mod1_p1_g$ecart_classement <- factor(data_mod1_p1_g$ecart_classement, levels = c("-1","0","1"))
+data_mod1_p1$ecart_classement <- factor(data_mod1_p1$ecart_classement, levels = c("-1","0","1"))
 data_mod1_p1$ecart_classement <- relevel(data_mod1_p1$ecart_classement, ref = "0")
 
 data_mod1_p1_g <- data_mod1_p1 %>%
@@ -760,3 +760,65 @@ gg_combined <- ggplot(complete_data_plot, aes(x = estimate, y = term, xmin = con
 
 # Afficher le graphique
 print(gg_combined)
+
+
+
+
+########## HEATMAP ##########
+
+models <- list(
+  P1_gagnant = mod_final_p1_g, 
+  P2_gagnant = mod_final_p2_g,
+  P3_gagnant = mod_final_p3_g,
+  P1_egalite = mod_final_p1_e, 
+  P2_egalite = mod_final_p2_e, 
+  P3_egalite = mod_final_p3_e,
+  P1_perdant = mod_final_p1_p, 
+  P2_perdant = mod_final_p2_p, 
+  P3_perdant = mod_final_p3_p
+)
+
+# Donner des noms explicites aux modèles
+names(models) <- c(
+  "P1_gagnant", "P2_gagnant", "P3_gagnant",
+  "P1_egalite", "P2_egalite", "P3_egalite",
+  "P1_perdant", "P2_perdant", "P3_perdant"
+)
+
+library(dplyr)
+library(broom)
+
+# Extraction des coefficients pour tous les modèles
+coefficients_list <- lapply(names(models), function(model_name) {
+  broom::tidy(models[[model_name]], conf.int = TRUE) %>%
+    mutate(
+      modele = model_name,
+      periode = sub("_.*", "", model_name),      # Extraire la période (P1, P2, P3)
+      statut = sub(".*_", "", model_name)        # Extraire le statut (gagnant, egalite, perdant)
+    )
+})
+
+# Combiner tous les modèles en un seul tableau
+coefficients_df <- do.call(rbind, coefficients_list)
+
+# Garder uniquement les colonnes nécessaires pour le graphique
+heatmap_data <- coefficients_df %>%
+  filter(!is.na(estimate)) %>% # Exclure les lignes sans coefficient estimé
+  select(term, periode, statut, estimate) # Garder les colonnes importantes
+
+library(ggplot2)
+
+plot_coeff <- ggplot(heatmap_data, aes(x = periode, y = term, fill = estimate)) +
+  geom_tile(color = "white") +
+  facet_grid(statut ~ ., scales = "free_y") + # Une facette pour chaque statut (gagnant, égalité, perdant)
+  #scale_fill_gradient2(low = "red", mid = "white", high = "green", midpoint = 0) +
+  scale_fill_viridis_c() +
+  theme_minimal() +
+  labs(
+    title = "Comparaison des coefficients des modèles par période et statut",
+    x = "Périodes",
+    y = "Variables",
+    fill = "Coefficient"
+  )
+
+ggsave("Graphiques/modele_59_periode_statut.png", plot = plot_coeff, width = 12, height = 9, dpi = 300)
