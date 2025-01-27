@@ -22,6 +22,7 @@ library(cvTools)
 library(pROC)
 library(caret)
 library(rsample)
+library(plotly)
 ```
 
 
@@ -123,7 +124,8 @@ data_mod1 <- data %>%
       grepl("2021", fichier, ignore.case = TRUE) ~ "2021",
       grepl("2122", fichier, ignore.case = TRUE) ~ "2122",
       grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
-      grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+      grepl("2324", fichier, ignore.case = TRUE) ~ "2324",
+      grepl("2425", fichier, ignore.case = TRUE) ~ "2425"
     )
   ) %>% 
   dplyr::select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min)) %>% 
@@ -229,7 +231,7 @@ train_control <- trainControl(
 
 set.seed(123)  
 model <- train(
-  effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement + statut_59_min,
+  effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement + statut_59_min + HF,
   data = train_data,   
   method = "glm", 
   family = "binomial",
@@ -237,25 +239,27 @@ model <- train(
 )
 
 print(model)
+pred_prob <- predict(model, newdata = test_data, type = "prob")
 
-pred_prob <- predict(model, type = "prob")
-
-roc_curve <- roc(train_data$effet_positif, pred_prob[, "1"])
-plot(roc_curve,print.auc = TRUE, legacy.axes = TRUE)
+# Créer une courbe ROC
+roc_curve <- roc(test_data$effet_positif, pred_prob)
+plot(roc_curve, print.auc = TRUE, legacy.axes = TRUE)
 
 # Trouver le seuil optimal
 optimal_threshold <- coords(roc_curve, "best", ret = "threshold")
 print(paste("Seuil optimal:", optimal_threshold))
-pred_class <- ifelse(pred_prob[, "1"] > optimal_threshold[1,1], 1, 0)
 
-accuracy <- mean(train_data$effet_positif == pred_class)
-confusion <- table(train_data$effet_positif, pred_class)
-#auc <- auc(test_data$effet_positif, pred_prob)
+# Classifier en fonction du seuil optimal
+pred_class <- ifelse(pred_prob > optimal_threshold, 1, 0)
 
+# Calcul de l'accuracy et table de confusion
+accuracy <- mean(test_data$effet_positif == pred_class)
+confusion <- table(test_data$effet_positif, pred_class)
+
+# Afficher les résultats
 print("Table de confusion:")
 print(confusion)
 print(paste("Accuracy sur test_data:", accuracy))
-#print(paste("AUC sur test_data:", auc))
 ```
 
 
@@ -269,7 +273,7 @@ train_control <- trainControl(
 
 set.seed(123)  
 model_rf <- train(
-  effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement + statut_59_min,
+  effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement + statut_59_min + HF,
   data = train_data,   
   method = "rf", 
   family = "binomial",
@@ -280,12 +284,19 @@ print(model_rf)
 
 pred_prob <- predict(model_rf, type = "prob")
 
+# Générer la courbe ROC et l'afficher
 roc_curve <- roc(train_data$effet_positif, pred_prob[, "1"])
-plot(roc_curve,print.auc = TRUE, legacy.axes = TRUE)
+plot(roc_curve, print.auc = TRUE, legacy.axes = TRUE)
+
+# Enregistrer le graphique au format PNG
+png("Graphiques/graphique_pred.png", width = 1000, height = 1000, res = 300)
+plot(roc_curve, print.auc = TRUE, legacy.axes = TRUE)
+dev.off()
 
 # Trouver le seuil optimal
 optimal_threshold <- coords(roc_curve, "best", ret = "threshold")
 print(paste("Seuil optimal:", optimal_threshold))
+
 pred_class <- ifelse(pred_prob[, "1"] > optimal_threshold[1,1], 1, 0)
 
 accuracy <- mean(train_data$effet_positif == pred_class)
@@ -296,6 +307,48 @@ print("Table de confusion:")
 print(confusion)
 print(paste("Accuracy sur test_data:", accuracy))
 #print(paste("AUC sur test_data:", auc))
+
+
+# Conversion de la table de confusion en data.frame
+confusion_df <- as.data.frame(confusion)
+
+# Affichage des colonnes pour vérifier les noms
+print(colnames(confusion_df))
+
+# Renommer les colonnes correctement (adaptez les noms si nécessaire)
+colnames(confusion_df) <- c("Actual", "Predicted", "Count")
+
+# Ajout des pourcentages et étiquettes
+confusion_df <- confusion_df %>%
+  group_by(Actual) %>%
+  mutate(Percentage = Count / sum(Count) * 100) %>%
+  ungroup() %>%
+  mutate(Label = paste0(Count, "\n(", round(Percentage, 1), "%)"))
+
+# Création du graphique
+plot <- ggplot(confusion_df, aes(x = Predicted, y = Actual, fill = Count)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Label), size = 4) +
+  scale_fill_gradient(low = "lightblue1", high = "dodgerblue3") +
+  labs(
+    title = "Table de Prédiction",
+    subtitle = paste("Accuracy:", round(sum(diag(confusion)) / sum(confusion), 3)),
+    x = "Classe Prédite",
+    y = "Classe Réelle",
+    fill = "Nombre"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14)
+  )
+
+plot
+
+# Sauvegarde du graphique
+ggsave("Graphiques/table_prediction.png", plot = plot, width = 5, height = 5, dpi = 300)
 ```
 
 # LDA/QDA
@@ -304,7 +357,7 @@ print(paste("Accuracy sur test_data:", accuracy))
 library(MASS)
 
 # Modèle LDA
-modele_lda <- qda(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement + statut_59_min, 
+modele_lda <- qda(effet_positif ~ TM_derniere_min + TM_derniere_min_adverse + DM_adverse + DM + ecart_classement + statut_59_min + HF, 
                   data = train_data)
 
 # Prédictions
@@ -317,26 +370,58 @@ print(paste("Accuracy : ", accuracy))
 
 ```{r}
 
-pred_prob <- predict(model_rf, type = "prob")
+# Définir les valeurs possibles pour chaque colonne
+TM_derniere_min <- c(0, 1)
+TM_derniere_min_adverse <- c(0, 1)
+DM_adverse <- c(0, 1)
+DM <- c(0, 1)
+statut_59_min <- c(-1, 0, 1)
+ecart_classement <- c(1, 2, 3)
+HF <- "F"
 
-roc_curve <- roc(train_data$effet_positif, pred_prob[, "1"])
-plot(roc_curve,print.auc = TRUE, legacy.axes = TRUE)
+# Générer toutes les combinaisons possibles
+df <- expand.grid(
+  TM_derniere_min = TM_derniere_min,
+  TM_derniere_min_adverse = TM_derniere_min_adverse,
+  DM_adverse = DM_adverse,
+  DM = DM,
+  statut_59_min = statut_59_min,
+  ecart_classement = ecart_classement,
+  HF = HF
+)
 
-# Trouver le seuil optimal
-optimal_threshold <- coords(roc_curve, "best", ret = "threshold")
-print(paste("Seuil optimal:", optimal_threshold))
+# Afficher le DataFrame
+print(df)
+
+#predictions 
+pred_prob <- predict(model_rf, new_data = df, type = "prob")
 pred_class <- ifelse(pred_prob[, "1"] > optimal_threshold[1,1], 1, 0)
 
-accuracy <- mean(train_data$effet_positif == pred_class)
-confusion <- table(train_data$effet_positif, pred_class)
-#auc <- auc(test_data$effet_positif, pred_prob)
+# Créer une heatmap
+ggplot(df, aes(x = TM_derniere_min, y = DM, fill = as.factor(prediction))) +
+  geom_tile(color = "white") +
+  scale_fill_viridis_d(name = "Prediction") +
+  labs(title = "Heatmap des prédictions", x = "TM_derniere_min", y = "DM") +
+  theme_minimal()
 
-print("Table de confusion:")
-print(confusion)
-print(paste("Accuracy sur test_data:", accuracy))
-#print(paste("AUC sur test_data:", auc))
-
+# Créer un graphique interactif
+plot_ly(
+  data = combinations,
+  x = ~TM_derniere_min,
+  y = ~DM_adverse,
+  color = ~as.factor(prediction),
+  colors = "Viridis",
+  type = 'scatter',
+  mode = 'markers',
+  marker = list(size = 10)
+) %>%
+  layout(
+    title = "Graphique interactif des prédictions",
+    xaxis = list(title = "TM_derniere_min"),
+    yaxis = list(title = "DM_adverse")
+  )
 ```
+
 
 
 
