@@ -165,6 +165,8 @@ data_mod1 <- data_mod1 %>%
   dplyr::select(-c("journee","division","HF", "saison")) %>% 
   left_join(diff_norme, by = join_by(code_rencontre)) %>% 
   drop_na()
+
+data_mod1 %>% filter(is.na(diff_point_norm))
 ```
 
 ```{r}
