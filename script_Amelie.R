@@ -112,7 +112,8 @@ data_mod1_p1 <- data %>%
       grepl("2021", fichier, ignore.case = TRUE) ~ "2021",
       grepl("2122", fichier, ignore.case = TRUE) ~ "2122",
       grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
-      grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+      grepl("2324", fichier, ignore.case = TRUE) ~ "2324",
+      grepl("2425", fichier, ignore.case = TRUE) ~ "2425"
     )
   ) %>% 
   select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min, temps_proche_p1)) %>% 
@@ -155,9 +156,9 @@ ggplot(data_mod1_p1, aes(x = group_diff_point, y = diff_point_norm, fill = group
 
 data_mod1_p1 <- data_mod1_p1 %>% 
   mutate(ecart_classement = case_when(
-    group_diff_point == "moins fort" ~ 1,
-    group_diff_point == "meme niveau" ~ 2,
-    group_diff_point == "plus fort" ~ 3
+    group_diff_point == "moins fort" ~ -1,
+    group_diff_point == "meme niveau" ~ 0,
+    group_diff_point == "plus fort" ~ 1
   ))
 
 data_mod1_p1$ecart_classement <- as.factor(data_mod1_p1$ecart_classement)
@@ -260,7 +261,8 @@ data_mod1_p2 <- data %>%
       grepl("2021", fichier, ignore.case = TRUE) ~ "2021",
       grepl("2122", fichier, ignore.case = TRUE) ~ "2122",
       grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
-      grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+      grepl("2324", fichier, ignore.case = TRUE) ~ "2324",
+      grepl("2425", fichier, ignore.case = TRUE) ~ "2425"
     )
   ) %>% 
   select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min, temps_proche_p2)) %>% 
@@ -303,9 +305,9 @@ ggplot(data_mod1_p2, aes(x = group_diff_point, y = diff_point_norm, fill = group
 
 data_mod1_p2 <- data_mod1_p2 %>% 
   mutate(ecart_classement = case_when(
-    group_diff_point == "moins fort" ~ 1,
-    group_diff_point == "meme niveau" ~ 2,
-    group_diff_point == "plus fort" ~ 3
+    group_diff_point == "moins fort" ~ -1,
+    group_diff_point == "meme niveau" ~ 0,
+    group_diff_point == "plus fort" ~ 1
   ))
 
 data_mod1_p2$ecart_classement <- as.factor(data_mod1_p2$ecart_classement)
@@ -408,7 +410,8 @@ data_mod1_p3 <- data %>%
       grepl("2021", fichier, ignore.case = TRUE) ~ "2021",
       grepl("2122", fichier, ignore.case = TRUE) ~ "2122",
       grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
-      grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+      grepl("2324", fichier, ignore.case = TRUE) ~ "2324",
+      grepl("2425", fichier, ignore.case = TRUE) ~ "2425"
     )
   ) %>% 
   select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min, temps_proche_p3)) %>% 
@@ -451,9 +454,9 @@ ggplot(data_mod1_p3, aes(x = group_diff_point, y = diff_point_norm, fill = group
 
 data_mod1_p3 <- data_mod1_p3 %>% 
   mutate(ecart_classement = case_when(
-    group_diff_point == "moins fort" ~ 1,
-    group_diff_point == "meme niveau" ~ 2,
-    group_diff_point == "plus fort" ~ 3
+    group_diff_point == "moins fort" ~ -1,
+    group_diff_point == "meme niveau" ~ 0,
+    group_diff_point == "plus fort" ~ 1
   ))
 
 data_mod1_p3$ecart_classement <- as.factor(data_mod1_p3$ecart_classement)

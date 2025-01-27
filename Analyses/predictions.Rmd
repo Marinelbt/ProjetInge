@@ -101,7 +101,7 @@ data_mod1 <- data %>%
       TRUE ~ 0
     ),
     HF = case_when(
-      grepl("D1F", fichier, ignore.case = TRUE) | grepl("D2F", fichier, ignore.case = TRUE) ~ "F",
+      grepl("F", fichier) ~ "F",
       TRUE ~ "H"
     ),
      DM = case_when(
@@ -123,7 +123,8 @@ data_mod1 <- data %>%
       grepl("2021", fichier, ignore.case = TRUE) ~ "2021",
       grepl("2122", fichier, ignore.case = TRUE) ~ "2122",
       grepl("2223", fichier, ignore.case = TRUE) ~ "2223",
-      grepl("2324", fichier, ignore.case = TRUE) ~ "2324"
+      grepl("2324", fichier, ignore.case = TRUE) ~ "2324",
+      grepl("2425", fichier, ignore.case = TRUE) ~ "2425"
     )
   ) %>% 
   dplyr::select(-c(TM_derniere_min_r, TM_derniere_min_v, DM_r, DM_v, temps_proche_59_min)) %>% 
@@ -171,8 +172,12 @@ data_mod1 %>%
   geom_density() +
   theme_minimal()
 
+quantiles <- quantile(data_mod1$diff_point_norm, probs = c(0, 1/3, 2/3, 1))
+
+print(quantiles)
+
 data_mod1$group_diff_point <- cut(data_mod1$diff_point_norm,
-                                  breaks = c(-Inf, -0.5, 0.5, Inf),
+                                  breaks = quantiles,
                                   labels = c("moins fort","meme niveau","plus fort"),
                                   include.lowest = T)
 table(data_mod1$group_diff_point)
@@ -185,9 +190,9 @@ ggplot(data_mod1, aes(x = group_diff_point, y = diff_point_norm, fill = group_di
 
 data_mod1 <- data_mod1 %>% 
   mutate(ecart_classement = case_when(
-    group_diff_point == "moins fort" ~ 1,
-    group_diff_point == "meme niveau" ~ 2,
-    group_diff_point == "plus fort" ~ 3
+    group_diff_point == "moins fort" ~ -1,
+    group_diff_point == "meme niveau" ~ 0,
+    group_diff_point == "plus fort" ~ 1
   ))
 
 data_mod1$ecart_classement <- as.factor(data_mod1$ecart_classement)
