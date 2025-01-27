@@ -128,7 +128,7 @@ data_mod1_p1$statut_final <- factor(data_mod1_p1$statut_final)
 data_mod1_p1$effet_positif <- factor(data_mod1_p1$effet_positif)
 data_mod1_p1$TM_derniere_min <- factor(data_mod1_p1$TM_derniere_min)
 data_mod1_p1$TM_derniere_min_adverse <- factor(data_mod1_p1$TM_derniere_min_adverse)
-data_mod1_p1$HF <- factor(data_mod1_p1$HF)
+data_mod1_p1$HF <- factor(data_mod1_p1$HF, levels = c("H","F"))
 data_mod1_p1$DM <- factor(data_mod1_p1$DM)
 data_mod1_p1$DM_adverse <- factor(data_mod1_p1$DM_adverse)
 data_mod1_p1$club_recevant <- factor(data_mod1_p1$club_recevant)
@@ -162,7 +162,7 @@ data_mod1_p1 <- data_mod1_p1 %>%
     group_diff_point == "plus fort" ~ 1
   ))
 
-data_mod1_p1$ecart_classement <- as.factor(data_mod1_p1$ecart_classement)
+data_mod1_p1$ecart_classement <- factor(data_mod1_p1$ecart_classement, levels = c(-1,0,1))
 
 data_mod1_p1 <- data_mod1_p1 %>% 
   select(-c(score_recevant_59_min, score_visiteur_59_min, equipe, statut_59_min))
@@ -277,7 +277,7 @@ data_mod1_p2$statut_final <- factor(data_mod1_p2$statut_final)
 data_mod1_p2$effet_positif <- factor(data_mod1_p2$effet_positif)
 data_mod1_p2$TM_derniere_min <- factor(data_mod1_p2$TM_derniere_min)
 data_mod1_p2$TM_derniere_min_adverse <- factor(data_mod1_p2$TM_derniere_min_adverse)
-data_mod1_p2$HF <- factor(data_mod1_p2$HF)
+data_mod1_p2$HF <- factor(data_mod1_p2$HF, levels = c("H","F"))
 data_mod1_p2$DM <- factor(data_mod1_p2$DM)
 data_mod1_p2$DM_adverse <- factor(data_mod1_p2$DM_adverse)
 data_mod1_p2$club_recevant <- factor(data_mod1_p2$club_recevant)
@@ -288,10 +288,6 @@ data_mod1_p2 <- data_mod1_p2 %>%
   select(-c("journee","division","HF", "saison")) %>% 
   left_join(diff_norme, by = join_by(code_rencontre)) %>% 
   drop_na()
-
-quantiles <- quantile(data_mod1_p2$diff_point_norm, probs = c(0, 1/3, 2/3, 1))
-
-print(quantiles)
 
 data_mod1_p2$group_diff_point <- cut(data_mod1_p2$diff_point_norm,
                                   breaks = quantiles,
@@ -311,7 +307,7 @@ data_mod1_p2 <- data_mod1_p2 %>%
     group_diff_point == "plus fort" ~ 1
   ))
 
-data_mod1_p2$ecart_classement <- as.factor(data_mod1_p2$ecart_classement)
+data_mod1_p2$ecart_classement <- factor(data_mod1_p2$ecart_classement, levels = c(-1,0,1))
 
 data_mod1_p2 <- data_mod1_p2 %>% 
   select(-c(score_recevant_59_min, score_visiteur_59_min, equipe, statut_59_min))
@@ -426,7 +422,7 @@ data_mod1_p3$statut_final <- factor(data_mod1_p3$statut_final)
 data_mod1_p3$effet_positif <- factor(data_mod1_p3$effet_positif)
 data_mod1_p3$TM_derniere_min <- factor(data_mod1_p3$TM_derniere_min)
 data_mod1_p3$TM_derniere_min_adverse <- factor(data_mod1_p3$TM_derniere_min_adverse)
-data_mod1_p3$HF <- factor(data_mod1_p3$HF)
+data_mod1_p3$HF <- factor(data_mod1_p3$HF, levels = c("H","F"))
 data_mod1_p3$DM <- factor(data_mod1_p3$DM)
 data_mod1_p3$DM_adverse <- factor(data_mod1_p3$DM_adverse)
 data_mod1_p3$club_recevant <- factor(data_mod1_p3$club_recevant)
@@ -437,10 +433,6 @@ data_mod1_p3 <- data_mod1_p3 %>%
   select(-c("journee","division","HF", "saison")) %>% 
   left_join(diff_norme, by = join_by(code_rencontre)) %>% 
   drop_na()
-
-quantiles <- quantile(data_mod1_p3$diff_point_norm, probs = c(0, 1/3, 2/3, 1))
-
-print(quantiles)
 
 data_mod1_p3$group_diff_point <- cut(data_mod1_p3$diff_point_norm,
                                      breaks = quantiles,
@@ -460,7 +452,7 @@ data_mod1_p3 <- data_mod1_p3 %>%
     group_diff_point == "plus fort" ~ 1
   ))
 
-data_mod1_p3$ecart_classement <- as.factor(data_mod1_p3$ecart_classement)
+data_mod1_p3$ecart_classement <- factor(data_mod1_p3$ecart_classement, levels = c(-1,0,1))
 
 data_mod1_p3 <- data_mod1_p3 %>% 
   select(-c(score_recevant_59_min, score_visiteur_59_min, equipe, statut_59_min))
@@ -472,8 +464,8 @@ write.csv(data_mod1_p3, "data_59_p3.csv")
 ########## Analyse ##########
 
 #### p1 gagnant
-data_mod1_p1$ecart_classement <- relevel(data_mod1_p1$ecart_classement, ref = 2)
-data_mod1_p1$HF <- relevel(data_mod1_p1$HF, ref = 'H')
+data_mod1_p1_g$ecart_classement <- factor(data_mod1_p1_g$ecart_classement, levels = c("-1","0","1"))
+data_mod1_p1$ecart_classement <- relevel(data_mod1_p1$ecart_classement, ref = "0")
 
 data_mod1_p1_g <- data_mod1_p1 %>%
   filter(statut_p1 == 1)
@@ -486,8 +478,7 @@ mod_final_p1_g <- stepwise(mod1_p1, direction = "backward/forward", criterion = 
 
 
 #### p2 gagnant
-data_mod1_p2$ecart_classement <- relevel(data_mod1_p2$ecart_classement, ref = 2)
-data_mod1_p2$HF <- relevel(data_mod1_p2$HF, ref = 'H')
+data_mod1_p2$ecart_classement <- relevel(data_mod1_p2$ecart_classement, ref = "0")
 
 data_mod1_p2_g <- data_mod1_p2 %>%
   filter(statut_p2 == 1)
@@ -500,8 +491,7 @@ mod_final_p2_g <- stepwise(mod1_p2, direction = "backward/forward", criterion = 
 
 
 #### p3 gagnant
-data_mod1_p3$ecart_classement <- relevel(data_mod1_p3$ecart_classement, ref = 2)
-data_mod1_p3$HF <- relevel(data_mod1_p3$HF, ref = 'H')
+data_mod1_p3$ecart_classement <- relevel(data_mod1_p3$ecart_classement, ref = "0")
 
 data_mod1_p3_g <- data_mod1_p3 %>%
   filter(statut_p3 == 1)
