@@ -189,7 +189,7 @@ point_jour <- point_jour %>%
   filter(as.numeric(sub("J", "", journee)) <= match_joue) %>% 
   ungroup() 
 
-write.csv(point_jour, "point_jour_final_2425.csv")
+#write.csv(point_jour, "point_jour_final_2425.csv")
 ```
 
 
@@ -346,7 +346,7 @@ for (i in 1:nrow(df)){
 df2 <- df2 %>% select(saison, division, HF, journee, code_rencontre, diff_point, diff_point_norm)
 
 
-write.csv(df2, "Data/data_diff_point_norme_2425.csv")
+#write.csv(df2, "Data/data_diff_point_norme_2425.csv")
 
 ```
 

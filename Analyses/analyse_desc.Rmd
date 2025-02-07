@@ -123,10 +123,9 @@ p1 <- data_descr_1 %>%
   theme_minimal() +
   theme(
     plot.title = element_text(size = 20, face = "bold"),  # Titre du graphique
-    axis.title = element_text(size = 16),                # Titres des axes
-    axis.text = element_text(size = 14),                 # Textes des axes
-    legend.title = element_text(size = 16),              # Titre de la légende
-    legend.text = element_text(size = 14)                # Texte de la légende
+    axis.title = element_text(size = 18),                # Titres des axes
+    axis.text = element_text(size = 18),                 # Textes des axes
+    legend.position = "none"
   )
 
 p2 <- data_descr_1 %>%
@@ -156,17 +155,17 @@ p2 <- data_descr_1 %>%
   theme_minimal() +
   theme(
     plot.title = element_text(size = 20, face = "bold"),  # Titre du graphique
-    axis.title = element_text(size = 16),                # Titres des axes
-    axis.text = element_text(size = 14),                 # Textes des axes
-    legend.title = element_text(size = 16),              # Titre de la légende
-    legend.text = element_text(size = 14)                # Texte de la légende
+    axis.title = element_text(size = 18),                # Titres des axes
+    axis.text = element_text(size = 18),                 # Textes des axes
+    legend.title = element_text(size = 20),              # Titre de la légende
+    legend.text = element_text(size = 18)                # Texte de la légende
   )
 
 # Combinaison des deux graphiques
 graphique_1 <- ggarrange(p1, p2, widths = c(2, 1))
 
 # Enregistrement avec ggsave
-ggsave("../Graphiques/graphique_desc_1.png", plot = graphique_1, width = 10, height = 6, dpi = 300)
+ggsave("../Graphiques/graphique_desc_1.png", plot = graphique_1, width = 14, height = 8, dpi = 300)
 
 
 ```
@@ -769,7 +768,7 @@ plot <- ggplot(data_summary, aes(x = as.factor(case_TM), y = pourcentage_positif
   facet_wrap(~statut_59_min, labeller = as_labeller(c("-1" = "Perd", "0" = "Égalité", "1" = "Gagne")), 
              scales = "free_x") +  # Facettes pour chaque statut
   scale_fill_manual(
-    values = c("darkorange4", "darkorange", "darkolivegreen1", "darkolivegreen"),  # Couleurs personnalisées
+    values = c("darkorange4", "darkorange", "darkolivegreen", "darkolivegreen1"),  # Couleurs personnalisées
     name = "4 cas différents selon les prises de temps-mort",  # Titre de la légende
     labels = levels(data_summary$case_TM_desc)  # Description des cas
   ) +

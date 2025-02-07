@@ -158,7 +158,7 @@ data_mod1$division <- factor(data_mod1$division)
 # Ajout de la variable différence de point
 
 ```{r}
-diff_norme <- read.csv("data_final/data_diff_norme_final.csv", row.names = 1)
+diff_norme <- read.csv("../data_final/data_diff_norme_final.csv", row.names = 1)
 diff_norme$saison <- factor(diff_norme$saison)
 
 data_mod1 <- data_mod1 %>% 
@@ -210,10 +210,6 @@ data_mod1 %>%
 
 ```
 
-```{r}
-#data_mod1 <- data_mod1[,-26]
-```
-
 
 # Sous-jeux de données 
 
@@ -246,18 +242,18 @@ print(model)
 pred_prob <- predict(model, newdata = test_data, type = "prob")
 
 # Créer une courbe ROC
-roc_curve <- roc(test_data$effet_positif, pred_prob)
+roc_curve <- roc(test_data$effet_positif, pred_prob[[2]])
 plot(roc_curve, print.auc = TRUE, legacy.axes = TRUE)
 
 # Trouver le seuil optimal
-optimal_threshold <- coords(roc_curve, "best", ret = "threshold")
+optimal_threshold <- as.numeric(coords(roc_curve, "best", ret = "threshold"))
 print(paste("Seuil optimal:", optimal_threshold))
 
 # Classifier en fonction du seuil optimal
-pred_class <- ifelse(pred_prob > optimal_threshold, 1, 0)
+pred_class <- ifelse(pred_prob[[2]] > optimal_threshold, 1, 0)
 
 # Calcul de l'accuracy et table de confusion
-accuracy <- mean(test_data$effet_positif == pred_class)
+accuracy <- mean(test_data$effet_positif == as.factor(pred_class))
 confusion <- table(test_data$effet_positif, pred_class)
 
 # Afficher les résultats
@@ -293,7 +289,7 @@ roc_curve <- roc(train_data$effet_positif, pred_prob[, "1"])
 plot(roc_curve, print.auc = TRUE, legacy.axes = TRUE)
 
 # Enregistrer le graphique au format PNG
-png("Graphiques/graphique_pred.png", width = 1000, height = 1000, res = 300)
+png("../Graphiques/graphique_pred.png", width = 1000, height = 1000, res = 300)
 plot(roc_curve, print.auc = TRUE, legacy.axes = TRUE)
 dev.off()
 
@@ -352,7 +348,7 @@ plot <- ggplot(confusion_df, aes(x = Predicted, y = Actual, fill = Count)) +
 plot
 
 # Sauvegarde du graphique
-ggsave("Graphiques/table_prediction.png", plot = plot, width = 5, height = 5, dpi = 300)
+ggsave("../Graphiques/table_prediction.png", plot = plot, width = 5, height = 5, dpi = 300)
 ```
 
 # LDA/QDA
@@ -370,7 +366,7 @@ accuracy <- mean(test_data$effet_positif == predictions)
 print(paste("Accuracy : ", accuracy))
 ```
 
-# Test sur un match qui ne s'est pas necore produit 
+# Test sur un match qui ne s'est pas encore produit 
 
 ```{r}
 

@@ -5,7 +5,7 @@ library(GGally)
 library(RcmdrMisc)
 library(broom)
 
-data <- read.csv("data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
+data <- read.csv("../data_final/df_pdfs_final.csv", header = TRUE, sep = ",")
 
 data <- data %>%
   separate(score_final, into = c("score_final_r", "score_final_v"), sep = "-") %>%
@@ -803,7 +803,6 @@ coefficients_df <- do.call(rbind, coefficients_list)
 
 # Garder uniquement les colonnes nécessaires pour le graphique
 heatmap_data <- coefficients_df %>%
-  filter(!is.na(estimate)) %>% # Exclure les lignes sans coefficient estimé
   select(term, periode, statut, estimate) # Garder les colonnes importantes
 
 library(ggplot2)
@@ -822,3 +821,111 @@ plot_coeff <- ggplot(heatmap_data, aes(x = periode, y = term, fill = estimate)) 
   )
 
 ggsave("Graphiques/modele_59_periode_statut.png", plot = plot_coeff, width = 12, height = 9, dpi = 300)
+
+
+
+
+
+
+
+
+
+
+library(ggplot2)
+library(ggcoefplot)
+
+# Fonction pour uniformiser la taille des textes et fixer les variables dans le même ordre
+uniformize_plot <- function(ggplot_object) {
+  ggplot_object +
+    theme(
+      text = element_text(size = 16),  # Taille générale des textes
+      plot.title = element_text(size = 20, face = "bold"),  # Taille du titre
+      axis.title = element_text(size = 16),  # Taille des titres des axes
+      axis.text = element_text(size = 14),  # Taille des ticks des axes
+      legend.title = element_text(size = 16),  # Taille du titre de la légende
+      legend.text = element_text(size = 14)  # Taille du texte de la légende
+    )
+}
+
+# Garder le même ordre des variables pour tous les graphes
+# Vous pouvez ajuster l'ordre manuellement en utilisant un vecteur des noms de variables
+variable_order <- c("TM_derniere_min", "TM_derniere_min_adverse", "DM_adverse", 
+                    "DM", "ecart_classement", "HF")
+
+# Appliquer l'ordre dans ggcoef_compare
+gg1 <- ggcoef_compare(
+  list(
+    "Modèle P1" = mod_final_p1_g,
+    "Modèle P2" = mod_final_p2_g,
+    "Modèle P3" = mod_final_p3_g
+  ),
+  type = "faceted",
+  exponentiate = TRUE,
+  order = variable_order
+) +
+  coord_cartesian(xlim = c(-1.5, 1.5)) +
+  scale_x_continuous(
+    breaks = seq(-1.5, 1.5, by = 1),
+    minor_breaks = seq(-1.5, 1.5, by = 0.5)
+  ) +
+  theme(
+    panel.grid.major.x = element_line(color = "grey80", linetype = "longdash"),
+    panel.grid.minor.x = element_line(color = "grey90", linetype = "longdash")
+  ) +
+  ggtitle("Modèle par période de 20 sec durant la dernière minute avec statut gagnant au début de la période")
+
+gg1 <- uniformize_plot(gg1)
+
+ggsave("Graphiques/modele_59_periode_gagnant.png", plot = gg1, width = 12, height = 9, dpi = 300)
+
+
+gg2 <- ggcoef_compare(
+  list(
+    "Modèle P1" = mod_final_p1_e,
+    "Modèle P2" = mod_final_p2_e,
+    "Modèle P3" = mod_final_p3_e
+  ),
+  type = "faceted",
+  exponentiate = TRUE,
+  order = variable_order
+) +
+  coord_cartesian(xlim = c(-1.5, 1.5)) +
+  scale_x_continuous(
+    breaks = seq(-1.5, 1.5, by = 1),
+    minor_breaks = seq(-1.5, 1.5, by = 0.5)
+  ) +
+  theme(
+    panel.grid.major.x = element_line(color = "grey80", linetype = "longdash"),
+    panel.grid.minor.x = element_line(color = "grey90", linetype = "longdash")
+  ) +
+  ggtitle("Modèle par période de 20 sec durant la dernière minute avec statut égalité au début de la période")
+
+gg2 <- uniformize_plot(gg2)
+
+ggsave("Graphiques/modele_59_periode_egalite.png", plot = gg2, width = 12, height = 9, dpi = 300)
+
+
+gg3 <- ggcoef_compare(
+  list(
+    "Modèle P1" = mod_final_p1_p,
+    "Modèle P2" = mod_final_p2_p,
+    "Modèle P3" = mod_final_p3_p
+  ),
+  type = "faceted",
+  exponentiate = TRUE,
+  order = variable_order
+) +
+  coord_cartesian(xlim = c(-1.5, 1.5)) +
+  scale_x_continuous(
+    breaks = seq(-1.5, 1.5, by = 1),
+    minor_breaks = seq(-1.5, 1.5, by = 0.5)
+  ) +
+  theme(
+    panel.grid.major.x = element_line(color = "grey80", linetype = "longdash"),
+    panel.grid.minor.x = element_line(color = "grey90", linetype = "longdash")
+  ) +
+  ggtitle("Modèle par période de 20 sec durant la dernière minute avec statut perdant au début de la période")
+
+gg3 <- uniformize_plot(gg3)
+
+ggsave("Graphiques/modele_59_periode_perdant.png", plot = gg3, width = 12, height = 9, dpi = 300)
